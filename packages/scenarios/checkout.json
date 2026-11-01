@@ -1,0 +1,94 @@
+{
+  "id": "mercado-01",
+  "version": "1.0.0",
+  "title": "Uma tarde tranquila. Até agora.",
+  "service": "Mercado / plataforma de comércio",
+  "briefing": "Você está de plantão no Mercado, uma pequena plataforma de comércio eletrônico. A API REST utiliza uma instância de aplicação e PostgreSQL. Clientes relatam lentidão nas páginas de produtos e falhas ao finalizar compras. Mantenha a latência p95 abaixo de 800 ms e os erros abaixo de 1% por 60 segundos simulados consecutivos. Investigue as evidências e decida como agir. Você pode pausar a qualquer momento.",
+  "databaseCapacity": 1100,
+  "apiCapacity": 600,
+  "baselineRps": 300,
+  "incident": {
+    "productWork": 8,
+    "deployedVersion": "v2.14.0"
+  },
+  "endpoints": [
+    {
+      "path": "GET /products",
+      "share": 0.65,
+      "work": 1,
+      "queries": [
+        {
+          "id": "catalog-list",
+          "name": "Listar produtos do catálogo",
+          "normal": {
+            "sql": "SELECT id, name, price\nFROM products\nORDER BY id DESC\nLIMIT 20;",
+            "plan": "Limit  (cost=0.29..1.12 rows=20 width=64)\n  ->  Index Scan Backward using products_pkey on products  (cost=0.29..1992.29 rows=48000 width=64)"
+          },
+          "indexed": {
+            "sql": "SELECT id, name, price\nFROM products\nORDER BY created_at DESC\nLIMIT 20;",
+            "plan": "Limit  (cost=0.29..1.42 rows=20 width=72)\n  ->  Index Scan Backward using products_created_at_idx on products  (cost=0.29..2712.29 rows=48000 width=72)"
+          },
+          "incident": {
+            "sql": "SELECT id, name, price\nFROM products\nORDER BY created_at DESC\nLIMIT 20;",
+            "plan": "Limit  (cost=2317.26..2317.31 rows=20 width=72)\n  ->  Sort  (cost=2317.26..2437.26 rows=48000 width=72)\n        Sort Key: created_at DESC\n        ->  Seq Scan on products  (cost=0.00..1040.00 rows=48000 width=72)"
+          }
+        }
+      ]
+    },
+    {
+      "path": "GET /products/:id",
+      "share": 0.15,
+      "work": 0.6,
+      "queries": [
+        {
+          "id": "product-detail",
+          "name": "Buscar produto por ID",
+          "normal": {
+            "sql": "SELECT id, name, price\nFROM products\nWHERE id = $1;",
+            "plan": "Index Scan using products_pkey on products  (cost=0.29..8.31 rows=1 width=64)\n  Index Cond: (id = $1)"
+          }
+        }
+      ]
+    },
+    {
+      "path": "POST /checkout",
+      "share": 0.08,
+      "work": 2,
+      "queries": [
+        {
+          "id": "checkout-stock",
+          "name": "Bloquear estoque do produto",
+          "normal": {
+            "sql": "SELECT id, stock\nFROM products\nWHERE id = $1\nFOR UPDATE;",
+            "plan": "LockRows  (cost=0.29..8.32 rows=1 width=18)\n  ->  Index Scan using products_pkey on products  (cost=0.29..8.31 rows=1 width=18)\n        Index Cond: (id = $1)"
+          }
+        }
+      ]
+    },
+    {
+      "path": "GET /orders",
+      "share": 0.12,
+      "work": 0.8,
+      "queries": [
+        {
+          "id": "customer-orders",
+          "name": "Buscar pedidos do cliente",
+          "normal": {
+            "sql": "SELECT id, status, total\nFROM orders\nWHERE customer_id = $1;",
+            "plan": "Index Scan using orders_customer_id_idx on orders  (cost=0.29..24.64 rows=20 width=48)\n  Index Cond: (customer_id = $1)"
+          }
+        }
+      ]
+    }
+  ],
+  "rootCause": "A versão v2.14.0 alterou a consulta da listagem de produtos para ordenar por uma coluna sem índice. Cada requisição do catálogo passou a consumir oito vezes mais trabalho no banco, saturando o PostgreSQL e atrasando as requisições de compra que compartilham o pool de conexões.",
+  "explanation": "O tráfego permaneceu próximo da referência, enquanto o trabalho no banco por requisição aumentou após o deploy. Os logs de consultas lentas, os planos de execução e as métricas por endpoint ajudam a distinguir uma regressão de um pico de tráfego. Mais instâncias da API não aumentam a capacidade do banco. O rollback restaura a consulta anterior; a consulta indexada corrige a causa. Cache e réplicas de leitura podem absorver a carga, mas acrescentam custos e riscos operacionais.",
+  "alternatives": [
+    "Criar índice do catálogo: adiciona um índice em created_at em 5 minutos simulados, preservando a ordenação da consulta implantada. O índice ocupa espaço e exige manutenção nas escritas.",
+    "Aumentar capacidade do banco: duplica a capacidade do primário em 5 minutos por US$ 0,24/h. Pode absorver o trabalho adicional, mas mantém a consulta ineficiente.",
+    "Rollback: restaura a consulta anterior em 3 minutos simulados, sem aumentar o custo de infraestrutura. Também reverte as demais funcionalidades da versão.",
+    "Consulta indexada: corrige a regressão em 4 minutos. Valide o plano de execução e adicione uma verificação de regressão de desempenho antes do próximo deploy.",
+    "Cache de catálogo: reduz o trabalho no banco após 2 minutos de configuração. Os dados podem ficar desatualizados por até 60 segundos; a consulta ineficiente continua nas falhas de cache.",
+    "Réplica de leitura: adiciona capacidade em 5 minutos por US$ 0,18/h. O atraso de replicação pode gerar leituras desatualizadas, e a consulta ainda precisa ser corrigida."
+  ]
+}

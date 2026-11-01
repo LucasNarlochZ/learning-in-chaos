@@ -1,0 +1,221 @@
+{
+  "id": "mercado-02",
+  "version": "2.0.0",
+  "title": "O culpado da vez?",
+  "service": "Mercado / plataforma de comércio",
+  "briefing": "Você está de plantão no Mercado. Uma campanha está no ar e uma nova versão foi implantada recentemente. Clientes relatam falhas ao finalizar compras, enquanto as páginas do catálogo continuam acessíveis. Investigue o incidente e recupere o serviço.",
+  "databaseCapacity": 1100,
+  "apiCapacity": 600,
+  "baselineRps": 300,
+  "incident": {
+    "kind": "row-lock",
+    "productWork": 1,
+    "deployedVersion": "v2.15.0",
+    "checkoutDelayMs": 180,
+    "checkoutWorkMultiplier": 1.5
+  },
+  "endpoints": [
+    {
+      "path": "GET /products",
+      "share": 0.53,
+      "work": 1,
+      "queries": [
+        {
+          "id": "catalog-list",
+          "name": "Listar produtos do catálogo",
+          "normal": {
+            "sql": "SELECT id, name, price\nFROM products\nORDER BY id DESC\nLIMIT 20;",
+            "plan": "Limit  (cost=0.29..1.12 rows=20 width=64)\n  ->  Index Scan Backward using products_pkey on products  (cost=0.29..1992.29 rows=48000 width=64)"
+          }
+        }
+      ]
+    },
+    {
+      "path": "GET /products/:id",
+      "share": 0.15,
+      "work": 0.6,
+      "queries": [
+        {
+          "id": "product-detail",
+          "name": "Buscar produto por ID",
+          "normal": {
+            "sql": "SELECT id, name, price\nFROM products\nWHERE id = $1;",
+            "plan": "Index Scan using products_pkey on products  (cost=0.29..8.31 rows=1 width=64)\n  Index Cond: (id = $1)"
+          }
+        }
+      ]
+    },
+    {
+      "path": "POST /checkout",
+      "share": 0.2,
+      "work": 2,
+      "queries": [
+        {
+          "id": "checkout-stock",
+          "name": "Bloquear estoque do produto",
+          "normal": {
+            "sql": "SELECT id, stock\nFROM products\nWHERE id = $1\nFOR UPDATE;",
+            "plan": "LockRows  (cost=0.29..8.32 rows=1 width=18)\n  ->  Index Scan using products_pkey on products  (cost=0.29..8.31 rows=1 width=18)\n        Index Cond: (id = $1)"
+          }
+        },
+        {
+          "id": "checkout-pricing",
+          "name": "Consultar regras de preço",
+          "normal": {
+            "sql": "SELECT discount FROM price_rules WHERE product_id = $1;",
+            "plan": "Index Scan using price_rules_product_id_idx on price_rules  (cost=0.29..8.31 rows=1 width=8)\n  Index Cond: (product_id = $1)"
+          },
+          "incident": {
+            "sql": "SELECT discount FROM price_rules WHERE product_id::text = $1::text;",
+            "plan": "Seq Scan on price_rules  (cost=0.00..28.00 rows=1 width=8)\n  Filter: ((product_id)::text = ($1)::text)"
+          }
+        }
+      ]
+    },
+    {
+      "path": "GET /orders",
+      "share": 0.12,
+      "work": 0.8,
+      "queries": [
+        {
+          "id": "customer-orders",
+          "name": "Buscar pedidos do cliente",
+          "normal": {
+            "sql": "SELECT id, status, total\nFROM orders\nWHERE customer_id = $1;",
+            "plan": "Index Scan using orders_customer_id_idx on orders  (cost=0.29..24.64 rows=20 width=48)\n  Index Cond: (customer_id = $1)"
+          }
+        }
+      ]
+    }
+  ],
+  "rootCause": "Uma transação da execução 6f2 da importação de estoque manteve bloqueios nos SKUs 101 e 102. Ela usava o mesmo usuário e application_name dos workers da aplicação. A v2.15.0 também introduziu uma regressão menor na consulta de preços do checkout: eram dois problemas simultâneos.",
+  "explanation": "O rollback remove 180 ms do checkout e restaura a busca indexada de preços, mas não libera os bloqueios. Só 40% das compras tocam os SKUs da categoria Eletrônicos afetados pela importação. Como o checkout representa 20% do tráfego, a taxa global de erro é 8%, enquanto Casa e Livros continuam vendendo. CPU baixa e esperas por lock ajudam a distinguir o problema de falta de capacidade. Os detalhes das sessões exigem instrumentação ativa e uma consulta explícita. O usuário mercado_app e o nome mercado-worker não identificam o dono: a referência c-6f2 e os horários ligam a sessão 731 à execução 6f2 do job inventory-sync. A sessão 904 executa uma compra saudável; encerrá-la aborta trabalho e causa falhas de reconexão por 30 segundos. O gateway já havia se recuperado. O SeqScan percorreu apenas 48 registros de shipping_methods em 2 ms. Tratar o lock remove os erros, e a regressão pequena pode permanecer dentro das metas; o postmortem registra essa pendência.",
+  "alternatives": [
+    "Reverter versão: remove a regressão da consulta de preços e melhora a latência, mas mantém os 8% de erros globais enquanto o lock existir.",
+    "Encerrar a sessão 731: depois de correlacionar a referência c-6f2 com o job agendado, encerra a transação em 30 segundos e desfaz o lote não confirmado. Encerrar um worker de compra gera uma compra abortada e falhas adicionais durante a reconexão.",
+    "Interromper a importação: encerra o processo externo e desfaz seu lote em 2 minutos simulados.",
+    "Limitar transações ociosas: aplica o limite de 180 segundos de inatividade. A sessão da importação é encerrada quando atinge esse limite; o lote deve ser reprocessado.",
+    "Limitar espera por bloqueios reduz a ocupação do pool, mas as compras dos SKUs afetados continuam falhando. Cache, réplica e capacidade adicional não liberam a transação.",
+    "Após o incidente, reduzir os lotes, limitar a duração das transações e identificar processos com application_name próprio. Verificar também a regressão menor de preços que pode restar após a recuperação."
+  ],
+  "initialLogs": [
+    {
+      "at": -240,
+      "kind": "INFO",
+      "message": "deploy version=v2.15.0 change=pricing_rules_and_receipt_template migration=none"
+    },
+    {
+      "at": -180,
+      "kind": "INFO",
+      "message": "POST /checkout status=200 sku=SKU-201 pricing_query=204ms previous=24ms version=v2.15.0"
+    },
+    {
+      "at": -100,
+      "kind": "INFO",
+      "message": "scheduler job=inventory-sync run_id=6f2 scheduled=true"
+    },
+    {
+      "at": -95,
+      "kind": "INFO",
+      "message": "job_started job=inventory-sync run_id=6f2 connection_tag=c-6f2 db_user=mercado_app"
+    },
+    {
+      "at": -90,
+      "kind": "INFO",
+      "message": "batch_progress run_id=6f2 category=Eletronicos skus=SKU-101,SKU-102 rows=1200"
+    },
+    {
+      "at": -85,
+      "kind": "WARN",
+      "message": "POST /checkout sku=SKU-101 category=Eletronicos status=504 wait_event=Lock:transactionid duration=5180ms"
+    },
+    {
+      "at": -75,
+      "kind": "INFO",
+      "message": "POST /checkout sku=SKU-201 category=Casa status=200 duration=394ms"
+    },
+    {
+      "at": -60,
+      "kind": "WARN",
+      "message": "payment_gateway latency_spike=1200ms duration=3s recovered=true"
+    },
+    {
+      "at": -40,
+      "kind": "INFO",
+      "message": "shipping_options plan=SeqScan table=shipping_methods rows_examined=48 duration=2ms"
+    },
+    {
+      "at": -10,
+      "kind": "INFO",
+      "message": "traffic_summary requests_per_second=300 baseline=300 payment_gateway_p95=82ms database_cpu=33%"
+    }
+  ],
+  "initialEvents": [
+    {
+      "at": -600,
+      "kind": "baseline",
+      "message": "Operação normal: 300 req/s · p95 180 ms · erros 0,1%"
+    },
+    {
+      "at": -240,
+      "kind": "deploy",
+      "message": "Versão v2.15.0 implantada · regras de preço e modelo de recibo; sem migrações"
+    },
+    {
+      "at": -100,
+      "kind": "job",
+      "message": "Job inventory-sync agendado · execução 6f2"
+    },
+    {
+      "at": -95,
+      "kind": "job",
+      "message": "Execução 6f2 iniciada · lote de estoque da categoria Eletrônicos"
+    },
+    {
+      "at": -85,
+      "kind": "alert",
+      "message": "Erros acima da meta; conexões ocupadas com CPU do banco abaixo de 40%"
+    },
+    {
+      "at": -60,
+      "kind": "alert",
+      "message": "Gateway de pagamento: pico de latência por 3 segundos, já recuperado"
+    },
+    {
+      "at": -30,
+      "kind": "customer",
+      "message": "“Consigo navegar pelos produtos, mas a compra fica carregando. Será o pagamento?”"
+    },
+    {
+      "at": -15,
+      "kind": "customer",
+      "message": "“A campanha começou hoje. Parece que a loja não suporta o movimento.”"
+    }
+  ],
+  "checkoutSegments": [
+    {
+      "sku": "SKU-101",
+      "category": "Eletrônicos",
+      "share": 0.2,
+      "lockAffected": true
+    },
+    {
+      "sku": "SKU-102",
+      "category": "Eletrônicos",
+      "share": 0.2,
+      "lockAffected": true
+    },
+    {
+      "sku": "SKU-201",
+      "category": "Casa",
+      "share": 0.3,
+      "lockAffected": false
+    },
+    {
+      "sku": "SKU-301",
+      "category": "Livros",
+      "share": 0.3,
+      "lockAffected": false
+    }
+  ]
+}

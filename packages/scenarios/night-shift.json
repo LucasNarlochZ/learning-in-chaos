@@ -1,0 +1,187 @@
+{
+  "id": "mercado-03",
+  "version": "1.0.0",
+  "title": "O fim do expediente",
+  "service": "Mercado / plataforma de comércio",
+  "briefing": "O movimento do Mercado segue próximo do habitual. Uma atualização foi publicada no fim da tarde e, pouco depois, começaram os relatos de lentidão em diferentes telas. Algumas compras ainda são concluídas, mas há clientes esperando mais que o normal. Você assume o plantão com o incidente em andamento. Investigue as evidências e recupere o serviço.",
+  "databaseCapacity": 1100,
+  "apiCapacity": 600,
+  "baselineRps": 300,
+  "incident": {
+    "kind": "workload-contention",
+    "productWork": 1,
+    "deployedVersion": "v2.16.0",
+    "queryEndpoint": "GET /orders",
+    "queryWorkMultiplier": 18,
+    "backgroundWork": 820
+  },
+  "endpoints": [
+    {
+      "path": "GET /products",
+      "share": 0.45,
+      "work": 1,
+      "queries": [
+        {
+          "id": "catalog-list",
+          "name": "Listar produtos do catálogo",
+          "normal": {
+            "sql": "SELECT id, name, price\nFROM products\nORDER BY id DESC\nLIMIT 20;",
+            "plan": "Limit  (cost=0.29..1.12 rows=20 width=64)\n  ->  Index Scan Backward using products_pkey on products  (cost=0.29..1992.29 rows=48000 width=64)"
+          }
+        }
+      ]
+    },
+    {
+      "path": "GET /products/:id",
+      "share": 0.15,
+      "work": 0.6,
+      "queries": [
+        {
+          "id": "product-detail",
+          "name": "Buscar produto por ID",
+          "normal": {
+            "sql": "SELECT id, name, price\nFROM products\nWHERE id = $1;",
+            "plan": "Index Scan using products_pkey on products  (cost=0.29..8.31 rows=1 width=64)\n  Index Cond: (id = $1)"
+          }
+        }
+      ]
+    },
+    {
+      "path": "POST /checkout",
+      "share": 0.2,
+      "work": 2,
+      "queries": [
+        {
+          "id": "checkout-stock",
+          "name": "Bloquear estoque do produto",
+          "normal": {
+            "sql": "SELECT id, stock\nFROM products\nWHERE id = $1\nFOR UPDATE;",
+            "plan": "LockRows  (cost=0.29..8.32 rows=1 width=18)\n  ->  Index Scan using products_pkey on products  (cost=0.29..8.31 rows=1 width=18)\n        Index Cond: (id = $1)"
+          }
+        }
+      ]
+    },
+    {
+      "path": "GET /orders",
+      "share": 0.2,
+      "work": 1,
+      "queries": [
+        {
+          "id": "customer-orders",
+          "name": "Buscar pedidos do cliente",
+          "indexExpression": "orders((customer_id::text), created_at DESC)",
+          "normal": {
+            "sql": "SELECT id, status, total FROM orders\nWHERE customer_id = $1\nORDER BY created_at DESC LIMIT 20;",
+            "plan": "Limit  (cost=0.43..12.20 rows=20 width=48)\n  ->  Index Scan using orders_customer_id_created_at_idx on orders  (cost=0.43..180.12 rows=300 width=48)\n        Index Cond: (customer_id = $1)"
+          },
+          "incident": {
+            "sql": "SELECT id, status, total FROM orders\nWHERE customer_id::text = $1::text\nORDER BY created_at DESC LIMIT 20;",
+            "plan": "Limit  (cost=16832.40..16832.45 rows=20 width=48)\n  ->  Sort  (cost=16832.40..16835.40 rows=1200 width=48)\n        Sort Key: created_at DESC\n        ->  Seq Scan on orders  (cost=0.00..16800.00 rows=1200 width=48)\n              Filter: ((customer_id)::text = ($1)::text)"
+          },
+          "indexed": {
+            "sql": "SELECT id, status, total FROM orders\nWHERE customer_id::text = $1::text\nORDER BY created_at DESC LIMIT 20;",
+            "plan": "Limit  (cost=0.43..12.20 rows=20 width=48)\n  ->  Index Scan using orders_customer_text_created_at_idx on orders  (cost=0.43..180.12 rows=300 width=48)\n        Index Cond: ((customer_id)::text = ($1)::text)"
+          }
+        }
+      ]
+    }
+  ],
+  "rootCause": "Duas cargas independentes disputavam o PostgreSQL primário: uma configuração de compatibilidade ativou a conversão customer_id::text na consulta de pedidos, impedindo o uso do índice existente, e a execução r17 da reconciliação iniciou uma agregação histórica no mesmo banco. O deploy v2.16.0 alterou somente a apresentação dos recibos.",
+  "explanation": "O tráfego HTTP permaneceu próximo de 300 req/s e a CPU da API tinha folga. O custo por consulta de pedidos aumentou às 17:42 após a ativação de legacy_customer_keys; às 17:45, a execução r17 acrescentou carga analítica ao primário. A fila compartilhada tornou lentos até endpoints com planos indexados. Não havia transações ociosas nem cadeia de locks. Uma consulta cara visível no cliente e outra em um worker consumiam capacidade simultaneamente: corrigir apenas uma deixa a outra acima da capacidade disponível. Reescrever a consulta de pedidos para comparar tipos iguais ou criar o índice de expressão reduz seu custo; suspender a reconciliação remove a carga do job. Cancelar uma sessão do job só interrompe uma tentativa: o agendador repete o trabalho após 45 segundos. Uma réplica combinada com a correção da consulta pode recuperar o serviço sem suspender o job, com custo extra e uma pendência operacional. Compare os efeitos de cada ação e a estabilidade ao longo do tempo.",
+  "alternatives": [
+    "Reescrever a consulta customer-orders e suspender orders-reconciliation: remove as duas fontes de carga adicional; a rotina suspensa precisa ser reprogramada.",
+    "Criar o índice de expressão para customer-orders e suspender orders-reconciliation: preserva o SQL atual, acrescentando manutenção e armazenamento do índice.",
+    "Corrigir a consulta e adicionar réplica de leitura: distribui o tráfego HTTP de leitura, recuperando o serviço com maior custo, enquanto a carga analítica continua no primário.",
+    "Suspender a rotina e aplicar cache a GET /orders pode mitigar a carga, mas mantém a consulta cara nas falhas de cache e permite dados desatualizados.",
+    "Após a recuperação, isolar rotinas analíticas, impor orçamento de carga e limitar tentativas automáticas. Validar a compatibilidade de tipos dos parâmetros antes de ativar configurações."
+  ],
+  "initialEvents": [
+    {
+      "at": -900,
+      "kind": "baseline",
+      "message": "Operação normal: 300 req/s · p95 190 ms · erros 0,1%"
+    },
+    {
+      "at": -600,
+      "kind": "deploy",
+      "message": "17:40 · v2.16.0 publicada · atualização visual dos recibos; sem alterações de banco"
+    },
+    {
+      "at": -480,
+      "kind": "job",
+      "message": "17:42 · configuração legacy_customer_keys ativada para o histórico de pedidos; atualização sem deploy"
+    },
+    {
+      "at": -300,
+      "kind": "job",
+      "message": "17:45 · execução r17 de orders-reconciliation iniciada no fechamento diário"
+    },
+    {
+      "at": -240,
+      "kind": "alert",
+      "message": "17:46 · fila do PostgreSQL em crescimento; requisições próximas da referência"
+    },
+    {
+      "at": -180,
+      "kind": "alert",
+      "message": "Gateway de pagamento: 900 ms por 2 segundos; normalizado na verificação seguinte"
+    },
+    {
+      "at": -120,
+      "kind": "customer",
+      "message": "“O histórico demora muito para abrir. Uma compra nova também ficou carregando.”"
+    },
+    {
+      "at": -60,
+      "kind": "customer",
+      "message": "“Vi o recibo novo e depois a loja ficou lenta. Será que a atualização deu problema?”"
+    }
+  ],
+  "initialLogs": [
+    {
+      "at": -600,
+      "kind": "INFO",
+      "message": "deploy version=v2.16.0 change=receipt_layout migrations=none"
+    },
+    {
+      "at": -480,
+      "kind": "INFO",
+      "message": "config_changed key=legacy_customer_keys value=enabled scope=order-history source=compatibility-console"
+    },
+    {
+      "at": -460,
+      "kind": "WARN",
+      "message": "GET /orders p95=810ms rows_examined=240000 parameter_type=text plan=SeqScan connection_tag=c-web-18"
+    },
+    {
+      "at": -300,
+      "kind": "INFO",
+      "message": "scheduler job=orders-reconciliation run_id=r17 connection_tag=c-r17 target=primary retries=enabled"
+    },
+    {
+      "at": -260,
+      "kind": "INFO",
+      "message": "job_progress run_id=r17 stage=historical_totals rows_scanned=14000000 transaction=read_only"
+    },
+    {
+      "at": -240,
+      "kind": "WARN",
+      "message": "db_summary cpu=100% idle_in_transaction=0 lock_wait_ms=0 queue_growing=true"
+    },
+    {
+      "at": -180,
+      "kind": "WARN",
+      "message": "payment_gateway spike=900ms duration=2s recovered=true"
+    },
+    {
+      "at": -90,
+      "kind": "INFO",
+      "message": "GET /products plan=IndexScan duration=2470ms rows_returned=20"
+    },
+    {
+      "at": -20,
+      "kind": "INFO",
+      "message": "traffic_summary requests_per_second=300 baseline=300 api_cpu=50% payment_gateway_p95=81ms"
+    }
+  ]
+}
