@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { availableActions, requiresActionTarget, cacheProfiles, type ActionId, type Difficulty } from '../../../packages/educational-content/src';
 import type { Observation } from '../../../packages/sim-engine/src';
+import { InstrumentationWait } from './InstrumentationWait';
 
 interface Props {
   mode: Difficulty;
@@ -13,6 +14,7 @@ interface Props {
 }
 
 export function InterventionTools({ mode, scenarioId, view, selected, disabled, onSelect, onApply }: Props) {
+  const feedbackId = useId();
   const [category, setCategory] = useState('Todas');
   const [targets, setTargets] = useState<Record<string, string>>({});
   const actions = availableActions(mode, scenarioId);
@@ -53,9 +55,10 @@ export function InterventionTools({ mode, scenarioId, view, selected, disabled, 
                 {!options.length && <small>Nenhum alvo disponível na topologia atual.</small>}
               </label>}
               {item.id === 'cache' && targeted && valid && <p className="target-estimate">Acertos estimados: {Math.round(cacheProfiles[target].hitRate * 100)}%. {target.startsWith('POST') ? 'Cache somente de leituras auxiliares; confirmação e estoque sempre consultam o banco.' : 'Chave por produto ou cliente; TTL de 60s.'}</p>}
-              <button className="primary wide" disabled={disabled || !!view.pending || !!view.instrumentation.pending || applied || (targeted && !valid)} onClick={() => onApply(item.id, targeted ? target : undefined)}>
+              <button className="primary wide" aria-describedby={view.instrumentation.pending ? `${feedbackId}-${item.id}` : undefined} disabled={disabled || !!view.pending || !!view.instrumentation.pending || applied || (targeted && !valid)} onClick={() => onApply(item.id, targeted ? target : undefined)}>
                 {item.id === 'terminate-session' ? 'Selecionar sessão na aplicação →' : applied ? 'Aplicada ✓' : 'Aplicar intervenção →'}
               </button>
+              <InstrumentationWait id={`${feedbackId}-${item.id}`} view={view} />
             </div>}
           </div>; })}</div>
         </section>;

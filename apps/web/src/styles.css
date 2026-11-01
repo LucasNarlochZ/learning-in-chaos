@@ -41,6 +41,7 @@
 .telemetry-card p,.telemetry-card ul{font-size:.9231rem;color:var(--muted);line-height:1.9}
 .telemetry-card ul{padding-left:18px;margin:16px 0 24px}
 .telemetry-card button{margin-top:auto;max-width:100%;white-space:normal;text-align:left;font-size:.8462rem}
+.instrumentation-wait,.telemetry-card .instrumentation-wait,.action-detail .instrumentation-wait{margin:10px 0 0;font-size:.8462rem;line-height:1.7;color:var(--amber);overflow-wrap:anywhere}
 .telemetry-budget dl{font-size:.9231rem}
 .telemetry-gap{padding:24px;display:flex;align-items:center;justify-content:space-between;gap:20px}
 .telemetry-gap h2{margin:10px 0}

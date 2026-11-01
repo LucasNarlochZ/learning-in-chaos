@@ -1,5 +1,7 @@
+import { useId } from 'react';
 import { instruments, type InstrumentId } from '../../../packages/educational-content/src';
 import type { Observation } from '../../../packages/sim-engine/src';
+import { InstrumentationWait } from './InstrumentationWait';
 
 interface Props {
   view: Observation;
@@ -8,6 +10,7 @@ interface Props {
 }
 
 export function Observability({ view, disabled, onConfigure }: Props) {
+  const feedbackId = useId();
   const { enabled, pending, overhead } = view.instrumentation;
   const blocked = disabled || !!view.pending || !!pending;
   return <>
@@ -23,7 +26,8 @@ export function Observability({ view, disabled, onConfigure }: Props) {
         <div className="eyebrow">{active ? 'COLETA ATIVA' : installing ? 'IMPLEMENTANDO' : 'NÃO INSTRUMENTADO'}</div>
         <h2>{item.name}</h2><p>{item.description}</p>
         <ul><li>+{item.databaseWork} unidades/s no banco</li><li>+{item.latency} ms por requisição</li><li>+US$ {item.cost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}/h</li></ul>
-        <button className={active ? '' : 'primary'} disabled={blocked} onClick={() => onConfigure(item.id, !active)}>{active ? 'Desativar' : 'Implementar'} {item.name}</button>
+        <button className={active ? '' : 'primary'} disabled={blocked} aria-describedby={pending ? `${feedbackId}-${item.id}` : undefined} onClick={() => onConfigure(item.id, !active)}>{active ? 'Desativar' : 'Implementar'} {item.name}</button>
+        <InstrumentationWait id={`${feedbackId}-${item.id}`} view={view} />
       </section>;
     })}</div>
   </>;

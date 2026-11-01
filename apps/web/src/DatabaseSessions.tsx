@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import type { Observation } from '../../../packages/sim-engine/src';
+import { InstrumentationWait } from './InstrumentationWait';
 
 interface Props {
   view: Observation;
@@ -9,6 +10,7 @@ interface Props {
 }
 
 export function DatabaseSessions({ view, busy, onInspect, onTerminate }: Props) {
+  const feedbackId = useId();
   const [selectedPid, setSelectedPid] = useState<number | null>(null);
   if (!view.database) return null;
   const sessions = view.databaseSessions;
@@ -32,14 +34,15 @@ export function DatabaseSessions({ view, busy, onInspect, onTerminate }: Props) 
           <td><code>{session.pid}</code><small>{session.application} · {session.user}</small><small>Referência: {session.connectionTag}</small></td>
           <td>{session.state}<small>{session.transactionAge.toLocaleString('pt-BR')}s de transação</small></td>
           <td>{session.waitEvent}<small>{session.blockedBy === null ? 'Sem bloqueador' : `Bloqueada pelo PID ${session.blockedBy}`}</small></td>
-          <td><code>{session.query}</code><button className="session-end" disabled={busy || ended || !!view.pending || !!view.instrumentation.pending} onClick={() => setSelectedPid(session.pid)}>Encerrar PID {session.pid}</button></td>
+          <td><code>{session.query}</code><button className="session-end" aria-describedby={view.instrumentation.pending ? `${feedbackId}-${session.pid}` : undefined} disabled={busy || ended || !!view.pending || !!view.instrumentation.pending} onClick={() => setSelectedPid(session.pid)}>Encerrar PID {session.pid}</button><InstrumentationWait id={`${feedbackId}-${session.pid}`} view={view} /></td>
         </tr>)}</tbody>
       </table></div> : <p className="empty-copy">Nenhuma sessão disponível nesta amostra.</p>}
       {selected && !ended && <div className="session-confirmation" role="dialog" aria-label={`Encerrar sessão ${selected.pid}`}>
         <h3>Encerrar PID {selected.pid}?</h3>
         <p>A transação será desfeita em 30 segundos simulados. Encerrar um worker de compra pode abortar uma compra e provocar falhas durante 30 segundos de reconexão.</p>
         <button disabled={busy} onClick={() => setSelectedPid(null)}>Cancelar encerramento</button>
-        <button className="primary" disabled={busy || !!view.pending || !!view.instrumentation.pending} onClick={() => { onTerminate(selected.pid); setSelectedPid(null); }}>Confirmar encerramento do PID {selected.pid}</button>
+        <button className="primary" aria-describedby={view.instrumentation.pending ? `${feedbackId}-confirm` : undefined} disabled={busy || !!view.pending || !!view.instrumentation.pending} onClick={() => { onTerminate(selected.pid); setSelectedPid(null); }}>Confirmar encerramento do PID {selected.pid}</button>
+        <InstrumentationWait id={`${feedbackId}-confirm`} view={view} />
       </div>}
       <div className="panel-footer">Amostra resumida; não representa todas as conexões do pool. Os detalhes consultados continuam disponíveis ao retomar a partida.</div>
     </>}
