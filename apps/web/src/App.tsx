@@ -11,6 +11,7 @@ import { InterventionTools } from './InterventionTools';
 import { InterventionReview } from './InterventionReview';
 import { scenarioCatalog } from '../../../packages/scenarios/src';
 import type { Client, Command, Snapshot } from './session';
+import { createAnalyticsSession, type AnalyticsClient } from './analytics';
 
 const STORAGE_KEY = 'learning-in-chaos.run.v1';
 const tabs = ['Overview', 'Endpoints', 'Application', 'Logs', 'Deploys', 'Customer messages', 'Alerts', 'Architecture', 'Observability'] as const;
@@ -127,6 +128,11 @@ export function App({ client: providedClient }: { client?: Client }) {
   const [sessionNavigation, setSessionNavigation] = useState(0);
   const databasePanel = useRef<HTMLDivElement>(null);
   const inFlight = useRef(false);
+  const analytics = useRef<AnalyticsClient | null>(null);
+  const sessionStartedAt = useRef<number | null>(null);
+  const previousElapsed = useRef(0);
+  const previousSpeed = useRef(1);
+  const previousPaused = useRef(true);
 
   useEffect(() => () => {
     if (!providedClient) {
@@ -165,6 +171,40 @@ export function App({ client: providedClient }: { client?: Client }) {
         setSaved(json);
       } catch { setStorageError("O armazenamento do navegador está indisponível. Mantenha esta aba aberta; o progresso não será preservado ao recarregar."); }
       if (next.observation.status !== 'active') setPaused(true);
+      if (command.type === 'start') {
+        sessionStartedAt.current = Date.now();
+        previousElapsed.current = 0;
+        analytics.current = await createAnalyticsSession({ scenarioId: next.record.scenarioId, scenarioVersion: next.record.scenarioVersion, difficulty: next.record.difficulty, seed: next.record.seed, engineVersion: next.record.engineVersion });
+        analytics.current?.track('game_started', 0, { scenario_id: next.record.scenarioId, difficulty: next.record.difficulty, resumed: false });
+      } else if (command.type === 'restore' && !analytics.current) {
+        sessionStartedAt.current = Date.now();
+        previousElapsed.current = next.record.elapsed;
+        analytics.current = await createAnalyticsSession({ scenarioId: next.record.scenarioId, scenarioVersion: next.record.scenarioVersion, difficulty: next.record.difficulty, seed: next.record.seed, engineVersion: next.record.engineVersion });
+        analytics.current?.track('game_resumed', next.record.elapsed, { scenario_id: next.record.scenarioId, difficulty: next.record.difficulty, resumed: true });
+      }
+      if (command.type === 'tick' && command.seconds === 30) analytics.current?.track('time_advanced', next.record.elapsed, { seconds: 30, source: 'step_button' });
+      if (command.type === 'tick') {
+        const simulatedSeconds = next.record.elapsed - previousElapsed.current;
+        if (simulatedSeconds > 0) analytics.current?.track('time_advanced', next.record.elapsed, { seconds: simulatedSeconds, source: command.seconds === 30 ? 'step_button' : 'clock', speed });
+      }
+      if (command.type === 'action') analytics.current?.track('intervention_started', next.record.elapsed, { action: command.action, target: command.target ?? null });
+      if (command.type === 'instrumentation') analytics.current?.track('instrumentation_changed', next.record.elapsed, { metric: command.metric, enabled: command.enabled });
+      if (command.type === 'hypothesis') analytics.current?.track('hypothesis_added', next.record.elapsed);
+      if (command.type === 'inspect-sessions') analytics.current?.track('database_sessions_inspected', next.record.elapsed);
+      if (command.type === 'terminate-session') analytics.current?.track('database_session_terminated', next.record.elapsed, { pid: command.pid });
+      if (command.type === 'query-plan') analytics.current?.track('query_plan_viewed', next.record.elapsed, { endpoint: command.endpoint, query_id: command.queryId });
+      if (command.type === 'finish') {
+        analytics.current?.track('game_finished', next.record.elapsed, { outcome: next.observation.status });
+        if (analytics.current && sessionStartedAt.current !== null) void analytics.current.finish(Date.now() - sessionStartedAt.current, next.record.elapsed, next.observation.status === 'resolved' ? 'resolved' : 'ended');
+        analytics.current = null;
+        sessionStartedAt.current = null;
+      } else if (next.observation.status !== 'active' && analytics.current && sessionStartedAt.current !== null) {
+        analytics.current.track('game_finished', next.record.elapsed, { outcome: next.observation.status, source: 'simulation' });
+        void analytics.current.finish(Date.now() - sessionStartedAt.current, next.record.elapsed, next.observation.status === 'resolved' ? 'resolved' : 'ended');
+        analytics.current = null;
+        sessionStartedAt.current = null;
+      }
+      if (command.type === 'tick' && next.record.elapsed !== previousElapsed.current) previousElapsed.current = next.record.elapsed;
       return next;
     } catch (cause) {
       setPaused(true);
@@ -183,6 +223,18 @@ export function App({ client: providedClient }: { client?: Client }) {
     const interval = setInterval(() => { void send({ type: 'tick', seconds: speed }); }, 1000);
     return () => clearInterval(interval);
   }, [paused, speed, snapshot?.observation.status]);
+
+  useEffect(() => {
+    if (!analytics.current) { previousSpeed.current = speed; previousPaused.current = paused; return; }
+    if (speed !== previousSpeed.current) {
+      analytics.current.track('simulation_speed_changed', snapshot?.record.elapsed ?? 0, { from: previousSpeed.current, to: speed });
+      previousSpeed.current = speed;
+    }
+    if (paused !== previousPaused.current) {
+      analytics.current.track(paused ? 'simulation_paused' : 'simulation_resumed', snapshot?.record.elapsed ?? 0);
+      previousPaused.current = paused;
+    }
+  }, [paused, speed, snapshot?.record.elapsed]);
 
   useEffect(() => {
     if (!sessionNavigation) return;
@@ -238,7 +290,7 @@ export function App({ client: providedClient }: { client?: Client }) {
   return <div className="app-shell">
     <header className="topbar"><Brand /><div className="workspace-path"><span>/</span> Sala do incidente <span>/</span><strong>Mercado</strong><span className="environment">PRODUÇÃO</span></div><span className="local-pill"><i className="healthy-dot" /> Salvo no navegador</span></header>
     <div className="app-layout">
-      <aside className="sidebar"><div className="sidebar-section">INVESTIGAÇÃO</div><nav aria-label="Ferramentas de investigação">{tabs.filter(name => name !== 'Observability' || mode === 'free').map(name => <button key={name} className={tab === name && !showReport ? 'active' : ''} onClick={() => { setTab(name); setShowReport(false); }}><span aria-hidden="true">{symbols[tabs.indexOf(name)]}</span>{tabLabels[name]}</button>)}</nav>
+      <aside className="sidebar"><div className="sidebar-section">INVESTIGAÇÃO</div><nav aria-label="Ferramentas de investigação">{tabs.filter(name => name !== 'Observability' || mode === 'free').map(name => <button key={name} className={tab === name && !showReport ? 'active' : ''} onClick={() => { if (tab !== name) analytics.current?.track('tab_opened', view.elapsed, { tab: name }); setTab(name); setShowReport(false); }}><span aria-hidden="true">{symbols[tabs.indexOf(name)]}</span>{tabLabels[name]}</button>)}</nav>
         <div className="sidebar-bottom"><div className="sidebar-tip"><span className="tip-icon">↳</span><strong>Siga as evidências.</strong><p>Um sintoma é um ponto de partida, não um diagnóstico.</p></div><div className="mode-indicator"><span>◇</span><div>{snapshot.record.difficulty === 'guided' ? "Investigação guiada" : "Exploração livre"}<small>Seed {snapshot.record.seed}</small></div></div><button className="sidebar-link" onClick={() => { setPaused(true); setSnapshot(null); setShowReport(false); setSelectedAction(null); }}>← Voltar ao briefing</button></div>
       </aside>
       <div className="workspace">

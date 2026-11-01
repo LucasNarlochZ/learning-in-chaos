@@ -3,3 +3,5 @@ dist/
 test-results/
 playwright-report/
 *.tsbuildinfo
+apps/analytics/data/
+apps/analytics/.admin-password

@@ -24,6 +24,12 @@ O jogo oferece diferentes níveis de dificuldade, ajustando a quantidade de comp
 
 **Objetivo do projeto:** construir um produto público, gratuito e open source, com usuários reais, que funcione como peça central de currículo e portfólio. Não existe meta de receita.
 
+### Analytics de partidas
+
+O projeto inclui uma API própria em NestJS com armazenamento SQLite para registrar sessões e eventos de jogo. A coleta permite analisar cenários e dificuldades iniciados, partidas retomadas e encerradas, duração real e simulada, abas abertas, hipóteses, consultas e inspeções, instrumentação, intervenções, além de pausas, velocidades e avanços manuais do relógio. Eventos não carregados durante uma indisponibilidade ficam em fila local para envio posterior.
+
+Para iniciar a API, execute `npm run dev:analytics` em um terminal e `npm run dev` em outro. O painel fica em `http://127.0.0.1:3001/api/dashboard`; use o usuário `admin` e a senha local gerada em `apps/analytics/.admin-password` no prompt de autenticação do navegador. Esse arquivo é ignorado pelo Git. A API escuta em `http://127.0.0.1:3001/api`; defina `VITE_ANALYTICS_URL` para outro endereço e `ANALYTICS_CORS_ORIGIN` para os domínios permitidos em produção. O banco é criado em `apps/analytics/data/analytics.sqlite` (ou no caminho de `ANALYTICS_DATABASE`). A API oferece `POST /sessions`, `POST /sessions/:id/events`, `POST /sessions/:id/finish`, `GET /sessions` e consultas de sessão/eventos por ID. As rotas de leitura exigem Basic Auth; as rotas de ingestão permanecem acessíveis ao cliente do jogo.
+
 ---
 
 ## 2. O problema
@@ -868,6 +874,45 @@ Um objetivo futuro é publicar um postmortem de um incidente real enfrentado pel
 O cronograma é uma estimativa, não um compromisso rígido.
 
 A prioridade será lançar uma experiência pequena e bem executada em vez de atrasar o produto para implementar todas as funcionalidades previstas.
+
+### Evolução futura: campanha e comportamento da aplicação
+
+Após validar o modo de incidentes independentes, o jogo poderá evoluir para uma experiência que combine a evolução da arquitetura com a corretude funcional da aplicação. A prioridade será reutilizar o motor, as ferramentas de investigação e os componentes existentes, sem manter sistemas de simulação independentes.
+
+#### Campanha com arquitetura persistente
+
+Na campanha, o jogador acompanhará um sistema desde uma arquitetura inicial simples, com API, servidor de aplicação e banco de dados. Novas tecnologias não serão apresentadas como conteúdo a ser aplicado antecipadamente: tráfego, requisitos, falhas e limitações criarão problemas que o jogador deverá investigar antes de decidir se uma mudança é necessária.
+
+As decisões permanecerão nos capítulos seguintes. Cache poderá reduzir a carga no banco e exigir estratégias de invalidação; réplicas de leitura poderão ampliar a capacidade e introduzir custo e defasagem; mais instâncias da aplicação poderão resolver a saturação temporariamente e aumentar a concorrência sobre o banco. Essas consequências representam trade-offs, não punições. Eventos comuns poderão afetar todas as campanhas, enquanto incidentes condicionais dependerão da arquitetura construída.
+
+Cada etapa poderá definir objetivos de disponibilidade, latência, corretude e orçamento operacional recorrente. A campanha incentivará soluções suficientes e sustentáveis para o contexto, em vez da arquitetura mais complexa.
+
+#### Comportamento funcional e suporte ao cliente
+
+As intervenções poderão alcançar regras de negócio, persistência, tratamento de falhas e concorrência. Assim, o sistema poderá parecer saudável em CPU, latência e erros HTTP e ainda falhar para seus usuários: cobranças duplicadas, saldos divergentes, pedidos ausentes, compras acima do estoque, notificações repetidas ou alterações revertidas.
+
+Uma central de suporte fictícia complementará dashboards, métricas e logs. Reclamações serão evidências potencialmente incompletas, ambíguas ou contraditórias, a serem correlacionadas com logs, eventos de domínio, histórico de operações, mudanças recentes e estado dos dados. O jogador deverá distinguir sintomas, hipóteses e causas. Uma cobrança duplicada, por exemplo, poderá decorrer de retry sem idempotência, processamento concorrente ou duplicação de eventos. Essa investigação apresentará a experiência do usuário como sinal da saúde funcional e distinguirá disponibilidade de corretude.
+
+#### Intervenções estruturadas na lógica
+
+Inicialmente, o jogador escolherá variantes de implementação ou ajustará aspectos delimitados de uma operação, sem executar código arbitrário. As opções poderão incluir chaves de idempotência, transações atômicas, restrições de unicidade, estratégias de locking, retries com backoff, processamento assíncrono, deduplicação, reconciliação e políticas de consistência e invalidação de cache.
+
+Pseudocódigo ou trechos ilustrativos poderão explicar cada alternativa, suas garantias, custos e limitações. As escolhas deverão representar estratégias com trade-offs, sem reduzir a decisão a uma resposta simplesmente certa ou errada. Edição livre de código fica como possibilidade posterior, fora do escopo inicial devido aos desafios de execução, segurança e modelagem.
+
+#### Estado de domínio e interação com a infraestrutura
+
+Uma camada de comportamento da aplicação poderá modelar entidades, operações de negócio, eventos de domínio e invariantes, separada dos modelos de infraestrutura. Em um sistema de compras, por exemplo, poderá acompanhar saldos, pedidos, transações, estoque, identificadores de requisição e estados de operações parcialmente concluídas.
+
+O motor avaliará propriedades como ausência de débitos duplicados, respeito aos limites de estoque e consistência entre operações relacionadas. Violações poderão produzir reclamações, divergências em relatórios e eventos de auditoria. A camada de domínio e os modelos de infraestrutura poderão interagir pelo relógio simulado e pela fila de eventos: escalar horizontalmente pode expor concorrência; processamento assíncrono pode exigir idempotência; réplicas podem servir dados desatualizados; cache pode exigir invalidação; serviços distribuídos podem precisar de recuperação e consistência. Por outro lado, mudanças na lógica também poderão afetar desempenho, recursos, disponibilidade e custos.
+
+#### Etapas de evolução
+
+1. **Incidente funcional isolado:** problema de corretude, reclamações de clientes, dados investigáveis e intervenções estruturadas.
+2. **Modelo de domínio:** entidades, operações e invariantes suficientes para simular concorrência, duplicação e consistência.
+3. **Campanha experimental:** sequência curta de capítulos com arquitetura persistente, orçamento e consequências das decisões anteriores.
+4. **Campanha dinâmica:** incidentes condicionais, progressão arquitetural, evolução da aplicação e desafios influenciados pelas escolhas do jogador.
+
+O objetivo educacional é ampliar o foco da investigação de incidentes operacionais para o ciclo completo de evolução de sistemas de software. O jogador aprenderá por que soluções se tornam necessárias, quais garantias oferecem e que responsabilidades introduzem, considerando desempenho, disponibilidade, corretude, custos e experiência do usuário — dimensões que nem sempre melhoram juntas.
 
 ---
 

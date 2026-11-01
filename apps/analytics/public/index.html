@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Analytics · Learning in Chaos</title>
+  <style>
+    :root{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#e8ece3;background:#111512;font-synthesis:none;text-rendering:optimizeLegibility;font-smooth:always;--line:#2a312b;--muted:#929b8d;--green:#b9db91;--panel:#171c18;--amber:#e7b568}*{box-sizing:border-box}body{margin:0}button{font:inherit;color:inherit;background:#202720;border:1px solid #384138;border-radius:5px;padding:9px 12px;cursor:pointer}button:hover{border-color:var(--green)}.top{height:64px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;padding:0 28px}.mark{display:grid;place-items:center;width:29px;height:29px;border-radius:6px;background:var(--green);color:#182014;font-size:24px}.top strong{font-size:15px}.top small{font-family:ui-monospace,monospace;color:var(--muted);margin-left:auto}.layout{max-width:1280px;padding:40px 28px;margin:auto}.heading{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:25px}.eyebrow{font:11px ui-monospace,monospace;letter-spacing:1.3px;color:var(--green)}h1{font-size:30px;letter-spacing:-.8px;margin:8px 0 5px}.sub{font-size:14px;color:var(--muted)}.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}.card,.panel{border:1px solid var(--line);background:var(--panel);border-radius:6px}.card{padding:17px 19px}.card span{font:11px ui-monospace,monospace;color:var(--muted)}.card strong{display:block;font-size:26px;font-weight:550;margin-top:12px}.grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(320px,.8fr);gap:14px}.panel-head{height:53px;padding:0 17px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line)}.panel-head h2{font-size:14px;font-weight:550;margin:0}.panel-head span{font:10px ui-monospace,monospace;color:var(--muted)}.scroll{overflow:auto;max-height:62vh}table{width:100%;border-collapse:collapse;text-align:left;font-size:12px}th{font:10px ui-monospace,monospace;color:var(--muted);letter-spacing:.6px}th,td{padding:12px 14px;border-bottom:1px solid #252b26;white-space:nowrap}tbody tr{cursor:pointer}tbody tr:hover,tbody tr.selected{background:#222a21}tbody tr.selected td:first-child{box-shadow:inset 2px 0 var(--green)}.scenario{font-weight:550}.muted{color:var(--muted)}.pill{display:inline-block;border-radius:3px;padding:3px 6px;background:#252d24;color:var(--green);font:10px ui-monospace,monospace}.pill.ended{color:var(--amber);background:#30291f}.empty{text-align:center;color:var(--muted);padding:32px 15px;font-size:13px}.events{padding:2px 17px;max-height:62vh;overflow:auto}.event{display:grid;grid-template-columns:54px 12px 1fr;gap:10px;padding:14px 0;border-bottom:1px solid #252b26}.event time{font:10px ui-monospace,monospace;color:var(--muted);padding-top:3px}.dot{width:7px;height:7px;border-radius:50%;background:var(--green);margin-top:5px}.event strong{font-size:12px;font-weight:550}.event p{margin:5px 0 0;color:var(--muted);font-size:11px;line-height:1.5;overflow-wrap:anywhere}.notice{color:var(--muted);font-size:12px;padding:15px 0}.error{color:#f0a38c}.footer{font:10px ui-monospace,monospace;color:#778173;padding:17px 2px}.loading{opacity:.6}@media(max-width:850px){.grid{grid-template-columns:1fr}.cards{grid-template-columns:repeat(2,1fr)}.layout{padding:28px 16px}.top{padding:0 16px}.scroll,.events{max-height:52vh}}@media(max-width:500px){.heading{align-items:flex-start;flex-direction:column}.cards{gap:8px}.card{padding:14px}.card strong{font-size:22px}th,td{padding:10px 9px}.table-extra{display:none}}
+  </style>
+</head>
+<body>
+  <header class="top"><span class="mark" aria-hidden="true">⌁</span><strong>learning in chaos</strong><small>ANALYTICS / ADMIN</small></header>
+  <main class="layout">
+    <div class="heading"><div><div class="eyebrow">VISÃO GERAL</div><h1>Partidas e atividade</h1><p class="sub">Sessões registradas e ações observadas no simulador.</p></div><button id="refresh">Atualizar ↻</button></div>
+    <section class="cards" aria-label="Resumo"><article class="card"><span>PARTIDAS</span><strong id="total">—</strong></article><article class="card"><span>EM ANDAMENTO</span><strong id="active">—</strong></article><article class="card"><span>RESOLVIDAS</span><strong id="resolved">—</strong></article><article class="card"><span>DURAÇÃO MÉDIA</span><strong id="duration">—</strong></article></section>
+    <div class="grid">
+      <section class="panel"><div class="panel-head"><h2>Sessões recentes</h2><span id="session-count">0 PARTIDAS</span></div><div class="scroll"><table><thead><tr><th>CENÁRIO</th><th>DIFICULDADE</th><th>ESTADO</th><th>DURAÇÃO</th><th class="table-extra">INÍCIO</th></tr></thead><tbody id="sessions"></tbody></table><div id="sessions-empty" class="empty">Carregando partidas…</div></div></section>
+      <section class="panel"><div class="panel-head"><h2 id="event-title">Eventos da partida</h2><span id="event-count">SELECIONE UMA PARTIDA</span></div><div id="events" class="events"><div class="empty">Selecione uma sessão para ver suas ações.</div></div></section>
+    </div>
+    <p id="notice" class="notice" role="status"></p>
+    <footer class="footer">ATUALIZAÇÃO AUTOMÁTICA A CADA 15 SEGUNDOS · DADOS LOCAIS</footer>
+  </main>
+  <script>
+    const sessionsElement = document.querySelector('#sessions');
+    const eventsElement = document.querySelector('#events');
+    const notice = document.querySelector('#notice');
+    const formatDuration = milliseconds => {
+      if (milliseconds == null) return '—';
+      const seconds = Math.floor(milliseconds / 1000);
+      return `${Math.floor(seconds / 60)}m ${String(seconds % 60).padStart(2, '0')}s`;
+    };
+    const formatDate = value => value ? new Date(value).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '—';
+    const safe = value => String(value ?? '').replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
+    let selectedId = null;
+    async function get(path) {
+      const response = await fetch(`/api${path}`, { credentials: 'same-origin' });
+      if (response.status === 401) throw new Error('A autenticação expirou. Recarregue e entre com admin.');
+      if (!response.ok) throw new Error(`Falha na API (${response.status}).`);
+      return response.json();
+    }
+    async function showEvents(id, row) {
+      selectedId = id;
+      document.querySelectorAll('#sessions tr').forEach(item => item.classList.toggle('selected', item === row));
+      const session = await get(`/sessions/${encodeURIComponent(id)}`);
+      const events = await get(`/sessions/${encodeURIComponent(id)}/events`);
+      document.querySelector('#event-title').textContent = `${session.scenarioId} · atividade`;
+      document.querySelector('#event-count').textContent = `${events.length} EVENTOS`;
+      eventsElement.innerHTML = events.length ? events.slice().reverse().map(event => `<article class="event"><time>${formatDuration(event.elapsedSeconds * 1000)}</time><span class="dot"></span><div><strong>${safe(event.name)}</strong><p>${safe(JSON.stringify(event.properties))}</p></div></article>`).join('') : '<div class="empty">Nenhum evento registrado.</div>';
+    }
+    async function refresh() {
+      notice.textContent = '';
+      try {
+        const sessions = await get('/sessions?limit=100');
+        const resolved = sessions.filter(session => session.status === 'resolved').length;
+        const completed = sessions.filter(session => session.durationMs != null);
+        const average = completed.length ? completed.reduce((sum, session) => sum + session.durationMs, 0) / completed.length : null;
+        document.querySelector('#total').textContent = sessions.length;
+        document.querySelector('#active').textContent = sessions.filter(session => session.status === 'active').length;
+        document.querySelector('#resolved').textContent = resolved;
+        document.querySelector('#duration').textContent = formatDuration(average);
+        document.querySelector('#session-count').textContent = `${sessions.length} PARTIDAS`;
+        document.querySelector('#sessions-empty').hidden = sessions.length > 0;
+        sessionsElement.innerHTML = sessions.map(session => `<tr data-id="${safe(session.id)}" class="${session.id === selectedId ? 'selected' : ''}"><td class="scenario">${safe(session.scenarioId)}</td><td>${safe(session.difficulty === 'guided' ? 'Guiada' : 'Livre')}</td><td><span class="pill ${session.status !== 'active' ? 'ended' : ''}">${safe(session.status)}</span></td><td>${formatDuration(session.durationMs)}</td><td class="table-extra muted">${safe(formatDate(session.startedAt))}</td></tr>`).join('');
+        sessionsElement.querySelectorAll('tr').forEach(row => row.addEventListener('click', () => showEvents(row.dataset.id, row).catch(error => { notice.textContent = error.message; notice.classList.add('error'); })));
+        if (selectedId && sessions.some(session => session.id === selectedId)) {
+          const row = sessionsElement.querySelector(`[data-id="${CSS.escape(selectedId)}"]`);
+          if (row) await showEvents(selectedId, row);
+        }
+      } catch (error) {
+        notice.textContent = error.message;
+        notice.classList.add('error');
+      }
+    }
+    document.querySelector('#refresh').addEventListener('click', refresh);
+    refresh();
+    setInterval(refresh, 15000);
+  </script>
+</body>
+</html>

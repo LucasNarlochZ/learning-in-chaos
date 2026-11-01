@@ -1,0 +1,27 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    depends_on:
+      - analytics
+    restart: unless-stopped
+
+  analytics:
+    build:
+      context: .
+      dockerfile: apps/analytics/Dockerfile
+    environment:
+      HOST: 0.0.0.0
+      PORT: 3001
+      ANALYTICS_DATABASE: /data/analytics.sqlite
+    volumes:
+      - analytics-data:/data
+    expose:
+      - "3001"
+    restart: unless-stopped
+
+volumes:
+  analytics-data:

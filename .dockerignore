@@ -1,0 +1,13 @@
+node_modules
+**/node_modules
+dist
+**/dist
+.git
+.DS_Store
+apps/analytics/data
+apps/analytics/.admin-password
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+test-results
+playwright-report
