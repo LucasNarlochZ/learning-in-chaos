@@ -1,0 +1,26 @@
+name: learning-in-chaos
+
+services:
+  web:
+    image: ghcr.io/lucasnarlochz/learning-in-chaos-web:${IMAGE_TAG:-latest}
+    ports:
+      - "${WEB_PORT:-8088}:80"
+    depends_on:
+      - analytics
+    restart: unless-stopped
+
+  analytics:
+    image: ghcr.io/lucasnarlochz/learning-in-chaos-analytics:${IMAGE_TAG:-latest}
+    environment:
+      HOST: 0.0.0.0
+      PORT: 3001
+      ANALYTICS_DATABASE: /data/analytics.sqlite
+      ANALYTICS_ADMIN_PASSWORD: ${ANALYTICS_ADMIN_PASSWORD:?Set ANALYTICS_ADMIN_PASSWORD in .env}
+    volumes:
+      - analytics-data:/data
+    expose:
+      - "3001"
+    restart: unless-stopped
+
+volumes:
+  analytics-data:
