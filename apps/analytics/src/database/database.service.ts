@@ -39,6 +39,16 @@ export class DatabaseService implements OnModuleDestroy {
       );
       CREATE INDEX IF NOT EXISTS events_session_time ON events(session_id, occurred_at);
       CREATE INDEX IF NOT EXISTS sessions_started_at ON sessions(started_at);
+      CREATE TABLE IF NOT EXISTS feedback (
+        id TEXT PRIMARY KEY,
+        category TEXT NOT NULL,
+        message TEXT NOT NULL,
+        name TEXT,
+        email TEXT,
+        rating INTEGER,
+        created_at TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS feedback_created_at ON feedback(created_at);
     `);
   }
 
