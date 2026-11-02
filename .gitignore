@@ -6,3 +6,6 @@ playwright-report/
 apps/analytics/data/
 apps/analytics/apps/analytics/data/
 apps/analytics/.admin-password
+.env
+.env.*
+!.env.example

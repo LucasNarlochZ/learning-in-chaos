@@ -17,6 +17,7 @@ services:
       HOST: 0.0.0.0
       PORT: 3001
       ANALYTICS_DATABASE: /data/analytics.sqlite
+      ANALYTICS_ADMIN_PASSWORD: ${ANALYTICS_ADMIN_PASSWORD:?Set ANALYTICS_ADMIN_PASSWORD in .env}
     volumes:
       - analytics-data:/data
     expose:

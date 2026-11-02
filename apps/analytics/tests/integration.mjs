@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, rm } from 'node:fs/promises';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -22,7 +22,7 @@ const child = spawn('node', ['dist/main.js'], {
 let serverOutput = '';
 child.stderr.setEncoding('utf8').on('data', chunk => { serverOutput += chunk; });
 const base = `http://127.0.0.1:${port}/api`;
-const authHeader = `Basic ${Buffer.from(`admin:${(await readFile(new URL('../.admin-password', import.meta.url), 'utf8')).trim()}`).toString('base64')}`;
+const authHeader = `Basic ${Buffer.from(`admin:${process.env.ANALYTICS_ADMIN_PASSWORD}`).toString('base64')}`;
 
 async function waitForApi() {
   for (let attempt = 0; attempt < 50; attempt += 1) {
