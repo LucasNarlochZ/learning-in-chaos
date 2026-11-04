@@ -54,7 +54,15 @@ Resume validates the record and reconstructs the run by replaying decisions. Ses
 The headless TypeScript API can be used in tests or another TypeScript application:
 
 ```ts
-import { createRun, advance, intervene, configureInstrumentation, observe, replay, report } from './packages/sim-engine/src';
+import {
+  createRun,
+  advance,
+  intervene,
+  configureInstrumentation,
+  observe,
+  replay,
+  report,
+} from './packages/sim-engine/src';
 
 const run = createRun(42, 'guided');
 advance(run, 30);
@@ -97,12 +105,12 @@ The initial queue represents an incident already underway when the operator arri
 
 Guided mode retains the following preset tools. Free mode exposes target selectors for index creation and scaling, while keeping the timeout configurations:
 
-| Intervention | Simulated delay | Effect and trade-off |
-| --- | --- | --- |
-| Criar índice do catálogo | 300 seconds | In incident 001, removes the expensive scan while preserving `ORDER BY created_at DESC`. The plan switches to `products_created_at_idx`. A previous rollback or query rewrite keeps its own SQL. Index storage and write-maintenance overhead are explained but not quantified. |
-| Aumentar capacidade do banco | 300 seconds | Doubles primary database capacity for US$ 0.24/hour; replica capacity stays unchanged. Does not repair the query or remove transaction locks. The model assumes no downtime during the resize. |
-| Limitar espera por bloqueios | 60 seconds | Changes checkout lock waits from five seconds to one second and reduces occupied connections. Failed checkouts still count as errors, so this alone does not recover incident 002. |
-| Limitar transações ociosas | 60 seconds | Enables a 180-second idle-transaction timeout. Incident 002's blocking session has already been idle for 90 seconds at the start, so applying this immediately closes it at simulated second 90, then the stability window begins. Ending the session rolls back its unconfirmed batch. |
+| Intervention                 | Simulated delay | Effect and trade-off                                                                                                                                                                                                                                                                    |
+| ---------------------------- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Criar índice do catálogo     | 300 seconds     | In incident 001, removes the expensive scan while preserving `ORDER BY created_at DESC`. The plan switches to `products_created_at_idx`. A previous rollback or query rewrite keeps its own SQL. Index storage and write-maintenance overhead are explained but not quantified.         |
+| Aumentar capacidade do banco | 300 seconds     | Doubles primary database capacity for US$ 0.24/hour; replica capacity stays unchanged. Does not repair the query or remove transaction locks. The model assumes no downtime during the resize.                                                                                          |
+| Limitar espera por bloqueios | 60 seconds      | Changes checkout lock waits from five seconds to one second and reduces occupied connections. Failed checkouts still count as errors, so this alone does not recover incident 002.                                                                                                      |
+| Limitar transações ociosas   | 60 seconds      | Enables a 180-second idle-transaction timeout. Incident 002's blocking session has already been idle for 90 seconds at the start, so applying this immediately closes it at simulated second 90, then the stability window begins. Ending the session rolls back its unconfirmed batch. |
 
 The current primary capacity and timeout settings appear in **Arquitetura**. Intervention duration, targets, costs, consequences, and instrumentation decisions are reproduced by deterministic replay.
 
@@ -112,12 +120,12 @@ Basic traffic, global and endpoint latency/errors, resource utilization, pool oc
 
 Each instrument takes 60 simulated seconds to install. Its overhead starts at completion and remains active until disabled. Disabling is immediate when no other change is pending; re-enabling requires another installation. Costs add together and are included in database demand, every endpoint's latency, accumulated run cost, and the current hourly rate. These are explicit educational coefficients, not measured exporter benchmarks.
 
-| Instrument | Added primary database work/s | Added request latency | Added hourly cost |
-| --- | --- | --- | --- |
-| Sessions and waits | 100 | 4 ms | US$ 0.02 |
-| Checkout dimensions | 50 | 6 ms | US$ 0.03 |
-| Query plans | 60 | 3 ms | US$ 0.02 |
-| Detailed logs | 80 | 8 ms | US$ 0.04 |
+| Instrument          | Added primary database work/s | Added request latency | Added hourly cost |
+| ------------------- | ----------------------------- | --------------------- | ----------------- |
+| Sessions and waits  | 100                           | 4 ms                  | US$ 0.02          |
+| Checkout dimensions | 50                            | 6 ms                  | US$ 0.03          |
+| Query plans         | 60                            | 3 ms                  | US$ 0.02          |
+| Detailed logs       | 80                            | 8 ms                  | US$ 0.04          |
 
 Detailed logs only collect new records while enabled; installation does not reconstruct earlier SQL plans, SKU outcomes, or lock waits. Previously collected logs remain readable after disabling. Disabling session collection hides session metrics and clears inspection access; disabling query-plan collection clears the fetched plan. Global charts remain available throughout.
 

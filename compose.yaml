@@ -4,7 +4,7 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "80:80"
+      - '80:80'
     depends_on:
       - analytics
     restart: unless-stopped
@@ -21,7 +21,7 @@ services:
     volumes:
       - analytics-data:/data
     expose:
-      - "3001"
+      - '3001'
     restart: unless-stopped
 
 volumes:

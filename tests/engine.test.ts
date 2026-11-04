@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { createRun, advance, intervene, observe, replay, report, addHypothesis, restoreRun } from '../packages/sim-engine/src';
+import {
+  createRun,
+  advance,
+  intervene,
+  observe,
+  replay,
+  report,
+  addHypothesis,
+  restoreRun,
+} from '../packages/sim-engine/src';
 import { scenarioSchema } from '../packages/scenario-schema/src';
 import scenario from '../packages/scenarios/checkout.json';
 
@@ -12,9 +21,9 @@ describe('deterministic incident simulation', () => {
   it('starts with symptoms without exposing the diagnosis in observations', () => {
     const view = observe(createRun(42, 'guided'));
     expect(view.metrics.latency).toBeGreaterThan(800);
-    expect(view.endpoints.find(e => e.path === 'GET /products')!.latency).toBeGreaterThan(800);
+    expect(view.endpoints.find((e) => e.path === 'GET /products')!.latency).toBeGreaterThan(800);
     expect(JSON.stringify(view)).not.toContain('rootCause');
-    expect(view.events.some(e => e.kind === 'deploy')).toBe(true);
+    expect(view.events.some((e) => e.kind === 'deploy')).toBe(true);
   });
 
   it('reproduces identical observations for a seed and simulated decisions', () => {
@@ -41,17 +50,20 @@ describe('deterministic incident simulation', () => {
     expect(report(run).failedRequests).toBeGreaterThan(0);
   });
 
-  it.each(['guided', 'free'] as const)('allows recovery by rollback in %s mode after deployment delay', mode => {
-    const run = createRun(7, mode);
-    intervene(run, 'rollback');
-    advance(run, 179);
-    expect(run.status).toBe('active');
-    advance(run, 121);
-    expect(run.status).toBe('resolved');
-    expect(observe(run).metrics.latency).toBeLessThan(800);
-    expect(report(run).rootCause).toBeTruthy();
-    expect(report(run).timeline.some(e => e.kind === 'action')).toBe(true);
-  });
+  it.each(['guided', 'free'] as const)(
+    'allows recovery by rollback in %s mode after deployment delay',
+    (mode) => {
+      const run = createRun(7, mode);
+      intervene(run, 'rollback');
+      advance(run, 179);
+      expect(run.status).toBe('active');
+      advance(run, 121);
+      expect(run.status).toBe('resolved');
+      expect(observe(run).metrics.latency).toBeLessThan(800);
+      expect(report(run).rootCause).toBeTruthy();
+      expect(report(run).timeline.some((e) => e.kind === 'action')).toBe(true);
+    },
+  );
 
   it('supports an alternative query repair strategy', () => {
     const run = createRun(7, 'free');
@@ -102,7 +114,7 @@ describe('deterministic incident simulation', () => {
 
   it('derives overall latency from the endpoint distribution', () => {
     const view = observe(createRun(8, 'guided'));
-    const latencies = view.endpoints.map(endpoint => endpoint.latency);
+    const latencies = view.endpoints.map((endpoint) => endpoint.latency);
     expect(view.metrics.latency).toBe(Math.max(...latencies));
   });
 
@@ -115,14 +127,28 @@ describe('deterministic incident simulation', () => {
     expect(run.system.regression).toBe(true);
   });
 
-  it.each(['rollback', 'optimize-query', 'cache', 'replica'] as const)('reference strategy %s recovers across seeds in both modes', action => {
-    for (const mode of ['guided', 'free'] as const) {
-      for (const seed of [0, 1, 42, 99, 4294967295]) {
-        const run = createRun(seed, mode);
-        intervene(run, action, undefined, mode === 'free' ? ({ cache: 'GET /products', 'optimize-query': 'catalog-list' } as Partial<Record<typeof action, string>>)[action] : undefined);
-        advance(run, 600);
-        expect(run.status).toBe('resolved');
+  it.each(['rollback', 'optimize-query', 'cache', 'replica'] as const)(
+    'reference strategy %s recovers across seeds in both modes',
+    (action) => {
+      for (const mode of ['guided', 'free'] as const) {
+        for (const seed of [0, 1, 42, 99, 4294967295]) {
+          const run = createRun(seed, mode);
+          intervene(
+            run,
+            action,
+            undefined,
+            mode === 'free'
+              ? (
+                  { cache: 'GET /products', 'optimize-query': 'catalog-list' } as Partial<
+                    Record<typeof action, string>
+                  >
+                )[action]
+              : undefined,
+          );
+          advance(run, 600);
+          expect(run.status).toBe('resolved');
+        }
       }
-    }
-  });
+    },
+  );
 });

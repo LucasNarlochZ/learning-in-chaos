@@ -6,5 +6,14 @@ import { AuthModule } from './auth/auth.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { FeedbackModule } from './feedback/feedback.module';
 
-@Module({ imports: [DatabaseModule, AuthModule, SessionsModule, EventsModule, DashboardModule, FeedbackModule] })
+@Module({
+  imports: [
+    DatabaseModule,
+    AuthModule,
+    SessionsModule,
+    EventsModule,
+    DashboardModule,
+    FeedbackModule,
+  ],
+})
 export class AppModule {}

@@ -1,1 +1,7 @@
-{"name":"@learning-in-chaos/sim-engine","version":"1.0.0","private":true,"type":"module","exports":"./src/index.ts"}
+{
+  "name": "@learning-in-chaos/sim-engine",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts"
+}

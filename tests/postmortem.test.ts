@@ -28,7 +28,11 @@ it('separates the immediate post-index queue from a later observation and final 
   expect(result.followUp).toMatchObject({ at: completesAt + 60, errors: 0, queue: 0 });
   expect(result.followUp!.latency).toBeLessThan(800);
   expect(result.observationEndedByChange).toBe(false);
-  expect(ended.finalMetrics).toMatchObject({ at: run.record.elapsed, errors: 0, stableSeconds: 60 });
+  expect(ended.finalMetrics).toMatchObject({
+    at: run.record.elapsed,
+    errors: 0,
+    stableSeconds: 60,
+  });
   expect(ended.finalMetrics.latency).toBeLessThan(800);
   expect(report(replay(run.record))).toEqual(ended);
 });
@@ -37,7 +41,11 @@ it('stops attributing follow-up observations when another intervention starts', 
   const run = indexUnderLoad();
   advance(run, 5);
   const until = run.record.elapsed;
-  const captured = { latency: run.metrics.latency, errors: run.metrics.errorRate, queue: run.metrics.queue };
+  const captured = {
+    latency: run.metrics.latency,
+    errors: run.metrics.errorRate,
+    queue: run.metrics.queue,
+  };
   intervene(run, 'restart', undefined, 'api-1');
   advance(run, 10);
   const result = report(run).inferences[2];

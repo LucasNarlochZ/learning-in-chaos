@@ -1,12 +1,21 @@
-type AnalyticsEvent = { name: string; elapsedSeconds: number; properties: Record<string, string | number | boolean | null> };
+type AnalyticsEvent = {
+  name: string;
+  elapsedSeconds: number;
+  properties: Record<string, string | number | boolean | null>;
+};
 
-const endpoint = (import.meta as ImportMeta & { env: Record<string, string | undefined> }).env.VITE_ANALYTICS_URL ?? 'http://127.0.0.1:3001/api';
+const endpoint =
+  (import.meta as ImportMeta & { env: Record<string, string | undefined> }).env
+    .VITE_ANALYTICS_URL ?? 'http://127.0.0.1:3001/api';
 const pendingKey = 'learning-in-chaos.analytics.pending.v1';
 const finishKey = 'learning-in-chaos.analytics.finishes.v1';
 
 function pending() {
-  try { return JSON.parse(localStorage.getItem(pendingKey) ?? '{}') as Record<string, AnalyticsEvent[]>; }
-  catch { return {} as Record<string, AnalyticsEvent[]>; }
+  try {
+    return JSON.parse(localStorage.getItem(pendingKey) ?? '{}') as Record<string, AnalyticsEvent[]>;
+  } catch {
+    return {} as Record<string, AnalyticsEvent[]>;
+  }
 }
 
 export class AnalyticsClient {
@@ -32,34 +41,63 @@ export class AnalyticsClient {
     const finish = { durationMs, simulatedSeconds, status };
     try {
       const response = await fetch(`${endpoint}/sessions/${this.sessionId}/finish`, {
-        method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(finish), keepalive: true,
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(finish),
+        keepalive: true,
       });
       if (!response.ok) this.persistFinish(finish);
-    } catch { this.persistFinish(finish); }
+    } catch {
+      this.persistFinish(finish);
+    }
     window.removeEventListener('online', this.flush);
     window.removeEventListener('online', this.flushFinishes);
   }
 
-  private persistFinish(finish: { durationMs: number; simulatedSeconds: number; status: 'resolved' | 'ended' }) {
+  private persistFinish(finish: {
+    durationMs: number;
+    simulatedSeconds: number;
+    status: 'resolved' | 'ended';
+  }) {
     try {
-      const values = JSON.parse(localStorage.getItem(finishKey) ?? '{}') as Record<string, typeof finish>;
+      const values = JSON.parse(localStorage.getItem(finishKey) ?? '{}') as Record<
+        string,
+        typeof finish
+      >;
       values[this.sessionId] = finish;
       localStorage.setItem(finishKey, JSON.stringify(values));
-    } catch { /* Analytics must not interrupt gameplay. */ }
+    } catch {
+      /* Analytics must not interrupt gameplay. */
+    }
   }
 
   private flushFinishes = async () => {
-    let values: Record<string, { durationMs: number; simulatedSeconds: number; status: 'resolved' | 'ended' }>;
-    try { values = JSON.parse(localStorage.getItem(finishKey) ?? '{}'); }
-    catch { return; }
+    let values: Record<
+      string,
+      { durationMs: number; simulatedSeconds: number; status: 'resolved' | 'ended' }
+    >;
+    try {
+      values = JSON.parse(localStorage.getItem(finishKey) ?? '{}');
+    } catch {
+      return;
+    }
     for (const [id, finish] of Object.entries(values)) {
       try {
-        const response = await fetch(`${endpoint}/sessions/${id}/finish`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(finish) });
+        const response = await fetch(`${endpoint}/sessions/${id}/finish`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(finish),
+        });
         if (response.ok) delete values[id];
-      } catch { break; }
+      } catch {
+        break;
+      }
     }
-    try { localStorage.setItem(finishKey, JSON.stringify(values)); } catch { /* Ignore unavailable storage. */ }
+    try {
+      localStorage.setItem(finishKey, JSON.stringify(values));
+    } catch {
+      /* Ignore unavailable storage. */
+    }
   };
 
   private flush = async () => {
@@ -68,11 +106,18 @@ export class AnalyticsClient {
     const batch = this.queue.splice(0, 100);
     try {
       const response = await fetch(`${endpoint}/sessions/${this.sessionId}/events`, {
-        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ events: batch }), keepalive: true,
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ events: batch }),
+        keepalive: true,
       });
       if (!response.ok) this.queue.unshift(...batch);
-    } catch { this.queue.unshift(...batch); }
-    finally { this.flushing = false; this.persist(); }
+    } catch {
+      this.queue.unshift(...batch);
+    } finally {
+      this.flushing = false;
+      this.persist();
+    }
   };
 
   private persist() {
@@ -81,17 +126,29 @@ export class AnalyticsClient {
       if (this.queue.length) stored[this.sessionId] = this.queue.slice(-500);
       else delete stored[this.sessionId];
       localStorage.setItem(pendingKey, JSON.stringify(stored));
-    } catch { /* Analytics must not interrupt gameplay. */ }
+    } catch {
+      /* Analytics must not interrupt gameplay. */
+    }
   }
 }
 
-export async function createAnalyticsSession(input: { scenarioId: string; scenarioVersion: string; difficulty: 'guided' | 'free'; seed: number; engineVersion: string }) {
+export async function createAnalyticsSession(input: {
+  scenarioId: string;
+  scenarioVersion: string;
+  difficulty: 'guided' | 'free';
+  seed: number;
+  engineVersion: string;
+}) {
   try {
     const response = await fetch(`${endpoint}/sessions`, {
-      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(input),
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(input),
     });
     if (!response.ok) return null;
-    const data = await response.json() as { id: string };
+    const data = (await response.json()) as { id: string };
     return new AnalyticsClient(data.id);
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }

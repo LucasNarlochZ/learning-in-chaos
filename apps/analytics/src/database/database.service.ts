@@ -8,7 +8,9 @@ export class DatabaseService implements OnModuleDestroy {
   readonly db: Database.Database;
 
   constructor() {
-    const filename = resolve(process.env.ANALYTICS_DATABASE ?? 'apps/analytics/data/analytics.sqlite');
+    const filename = resolve(
+      process.env.ANALYTICS_DATABASE ?? 'apps/analytics/data/analytics.sqlite',
+    );
     mkdirSync(dirname(filename), { recursive: true });
     this.db = new Database(filename);
     this.db.pragma('journal_mode = WAL');
@@ -52,5 +54,7 @@ export class DatabaseService implements OnModuleDestroy {
     `);
   }
 
-  onModuleDestroy() { this.db.close(); }
+  onModuleDestroy() {
+    this.db.close();
+  }
 }

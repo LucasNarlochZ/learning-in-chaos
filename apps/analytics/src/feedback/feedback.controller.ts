@@ -6,7 +6,11 @@ import { FeedbackService } from './feedback.service';
 export class FeedbackController {
   constructor(private readonly feedback: FeedbackService) {}
 
-  @Post() create(@Body() body: unknown) { return this.feedback.create(body); }
+  @Post() create(@Body() body: unknown) {
+    return this.feedback.create(body);
+  }
 
-  @Get() @UseGuards(BasicAuthGuard) list() { return this.feedback.list(); }
+  @Get() @UseGuards(BasicAuthGuard) list() {
+    return this.feedback.list();
+  }
 }

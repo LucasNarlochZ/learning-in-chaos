@@ -37,14 +37,14 @@ Browser
                               NestJS analytics API ──> SQLite
 ```
 
-| Component | Responsibility | Entry point |
-| --- | --- | --- |
-| Web application | Investigation UI, time controls, local persistence, analytics and feedback clients | `apps/web/src/App.tsx` |
-| Worker boundary | Serializes commands and returns player-facing snapshots; the worker owns the active run | `apps/web/src/session.ts`, `apps/web/src/simulation.worker.ts` |
-| Simulation engine | State transitions, timed events, observations, interventions, replay and reports; no DOM, network or filesystem | `packages/sim-engine/src/index.ts` |
-| Scenario definitions | Declarative incident data, validated with Zod and exposed through a catalog | `packages/scenarios/src/index.ts`, `packages/scenario-schema/src/index.ts` |
-| Educational content | Intervention descriptions, availability, costs and durations | `packages/educational-content/src/index.ts` |
-| Analytics service | Session and event ingestion, feedback and authenticated administrative reads | `apps/analytics/src/app.module.ts` |
+| Component            | Responsibility                                                                                                  | Entry point                                                                |
+| -------------------- | --------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Web application      | Investigation UI, time controls, local persistence, analytics and feedback clients                              | `apps/web/src/App.tsx`                                                     |
+| Worker boundary      | Serializes commands and returns player-facing snapshots; the worker owns the active run                         | `apps/web/src/session.ts`, `apps/web/src/simulation.worker.ts`             |
+| Simulation engine    | State transitions, timed events, observations, interventions, replay and reports; no DOM, network or filesystem | `packages/sim-engine/src/index.ts`                                         |
+| Scenario definitions | Declarative incident data, validated with Zod and exposed through a catalog                                     | `packages/scenarios/src/index.ts`, `packages/scenario-schema/src/index.ts` |
+| Educational content  | Intervention descriptions, availability, costs and durations                                                    | `packages/educational-content/src/index.ts`                                |
+| Analytics service    | Session and event ingestion, feedback and authenticated administrative reads                                    | `apps/analytics/src/app.module.ts`                                         |
 
 ## Run lifecycle and simulation
 
@@ -73,14 +73,14 @@ This is best-effort delivery, not exactly-once delivery. In particular, event ID
 
 The NestJS service uses SQLite with WAL and foreign keys enabled. It creates `sessions`, `events` and `feedback` tables at startup. The default database path is `apps/analytics/data/analytics.sqlite`; `ANALYTICS_DATABASE` overrides it. Event batches are validated and inserted in a transaction. The API uses the `/api` prefix:
 
-| Route | Access | Purpose |
-| --- | --- | --- |
-| `POST /sessions` | Public | Create an analytics session |
-| `POST /sessions/:id/events` | Public | Ingest 1–100 events for an existing session |
-| `POST /sessions/:id/finish` | Public | Record the session outcome and duration |
-| `GET /sessions`, `GET /sessions/:id`, `GET /sessions/:id/events` | Basic Auth | Read sessions and events |
-| `POST /feedback` | Public | Submit feedback |
-| `GET /feedback`, `GET /dashboard` | Basic Auth | Review feedback and dashboard |
+| Route                                                            | Access     | Purpose                                     |
+| ---------------------------------------------------------------- | ---------- | ------------------------------------------- |
+| `POST /sessions`                                                 | Public     | Create an analytics session                 |
+| `POST /sessions/:id/events`                                      | Public     | Ingest 1–100 events for an existing session |
+| `POST /sessions/:id/finish`                                      | Public     | Record the session outcome and duration     |
+| `GET /sessions`, `GET /sessions/:id`, `GET /sessions/:id/events` | Basic Auth | Read sessions and events                    |
+| `POST /feedback`                                                 | Public     | Submit feedback                             |
+| `GET /feedback`, `GET /dashboard`                                | Basic Auth | Review feedback and dashboard               |
 
 The dashboard username is `admin`; configure its password through `ANALYTICS_ADMIN_PASSWORD`. The client defaults to `http://127.0.0.1:3001/api`; `VITE_ANALYTICS_URL` selects a different build-time endpoint. `ANALYTICS_CORS_ORIGIN` accepts comma-separated origins; if omitted, the service allows any origin. Public ingestion is not authenticated, so analytics data is not a trusted game result. Protect administrative credentials with HTTPS and restrict network exposure as appropriate. Feedback may include a name and email, so SQLite and its backups need appropriate access controls.
 

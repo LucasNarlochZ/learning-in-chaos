@@ -1,1 +1,9 @@
-{"name":"@learning-in-chaos/scenarios","version":"1.0.0","private":true,"type":"module","exports":{"./checkout":"./checkout.json"}}
+{
+  "name": "@learning-in-chaos/scenarios",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./checkout": "./checkout.json"
+  }
+}

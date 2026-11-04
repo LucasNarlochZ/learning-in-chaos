@@ -5,7 +5,10 @@ import { App } from '../apps/web/src/App';
 import { EngineSession, type Client } from '../apps/web/src/session';
 import { advance, createRun, intervene } from '../packages/sim-engine/src';
 
-afterEach(() => { cleanup(); localStorage.clear(); });
+afterEach(() => {
+  cleanup();
+  localStorage.clear();
+});
 
 it('labels immediate, follow-up and final measurements separately after restoring a resolved incident', async () => {
   const run = createRun(42, 'free', 'mercado-03');
@@ -17,7 +20,12 @@ it('labels immediate, follow-up and final measurements separately after restorin
   advance(run, 420);
   localStorage.setItem('learning-in-chaos.run.v1', JSON.stringify(run.record));
   const session = new EngineSession();
-  const client: Client = { async dispatch(command) { return session.execute(command); }, terminate() {} };
+  const client: Client = {
+    async dispatch(command) {
+      return session.execute(command);
+    },
+    terminate() {},
+  };
   render(<App client={client} />);
   await userEvent.click(screen.getByRole('button', { name: /Retomar investigação salva/ }));
   await userEvent.click(await screen.findByRole('button', { name: /Ler postmortem/ }));
@@ -40,7 +48,8 @@ it('rebuilds an older postmortem from its saved decisions before displaying the 
   const client: Client = {
     async dispatch(command) {
       const snapshot = session.execute(command);
-      if (responses++ === 0 && snapshot.report) delete (snapshot.report as Partial<typeof snapshot.report>).finalMetrics;
+      if (responses++ === 0 && snapshot.report)
+        delete (snapshot.report as Partial<typeof snapshot.report>).finalMetrics;
       return snapshot;
     },
     terminate() {},

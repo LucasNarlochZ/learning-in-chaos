@@ -25,14 +25,26 @@ describe('free exploration', () => {
     expect(initial.observation.database).toBeNull();
     expect(initial.observation.checkoutBreakdown).toEqual([]);
     expect(initial.observation.databaseSessions).toBeNull();
-    expect(initial.observation.logs.some(log => /idle_in_transaction|wait_event|sku=|plan=/.test(log.message))).toBe(false);
-    expect(() => session.execute({ type: 'query-plan', endpoint: 'GET /products', queryId: 'catalog-list' })).toThrow(/instrumentação/i);
+    expect(
+      initial.observation.logs.some((log) =>
+        /idle_in_transaction|wait_event|sku=|plan=/.test(log.message),
+      ),
+    ).toBe(false);
+    expect(() =>
+      session.execute({ type: 'query-plan', endpoint: 'GET /products', queryId: 'catalog-list' }),
+    ).toThrow(/instrumentação/i);
     expect(() => session.execute({ type: 'inspect-sessions' })).toThrow(/instrumentação/i);
-    session.execute({ type: 'instrumentation', metric: 'database-sessions', enabled: true } as Command);
+    session.execute({
+      type: 'instrumentation',
+      metric: 'database-sessions',
+      enabled: true,
+    } as Command);
     expect(session.execute({ type: 'tick', seconds: 59 }).observation.database).toBeNull();
     const ready = session.execute({ type: 'tick', seconds: 1 });
     expect(ready.observation.database?.idleInTransaction).toBe(1);
-    expect(session.execute({ type: 'inspect-sessions' }).observation.databaseSessions).toHaveLength(3);
+    expect(session.execute({ type: 'inspect-sessions' }).observation.databaseSessions).toHaveLength(
+      3,
+    );
     expect(observe(replay(ready.record))).toEqual(ready.observation);
   });
 
@@ -42,36 +54,73 @@ describe('free exploration', () => {
     const first = instrument(session, 'database-sessions');
     const second = instrument(session, 'checkout-dimensions');
     expect(first.observation.metrics.hourlyCost).toBeGreaterThan(base.hourlyCost);
-    expect(second.observation.metrics.hourlyCost).toBeGreaterThan(first.observation.metrics.hourlyCost);
+    expect(second.observation.metrics.hourlyCost).toBeGreaterThan(
+      first.observation.metrics.hourlyCost,
+    );
     expect(second.observation.metrics.latency).toBeGreaterThan(first.observation.metrics.latency);
-    expect(second.observation.metrics.databaseUtilization).toBeGreaterThan(first.observation.metrics.databaseUtilization);
+    expect(second.observation.metrics.databaseUtilization).toBeGreaterThan(
+      first.observation.metrics.databaseUtilization,
+    );
     expect(second.observation.checkoutBreakdown).toHaveLength(4);
-    expect(second.observation.instrumentation.overhead.databaseWork).toBeGreaterThan(first.observation.instrumentation.overhead.databaseWork);
+    expect(second.observation.instrumentation.overhead.databaseWork).toBeGreaterThan(
+      first.observation.instrumentation.overhead.databaseWork,
+    );
     const disabled = instrument(session, 'database-sessions', false);
     expect(disabled.observation.database).toBeNull();
     expect(disabled.observation.databaseSessions).toBeNull();
-    expect(disabled.observation.metrics.hourlyCost).toBeLessThan(second.observation.metrics.hourlyCost);
+    expect(disabled.observation.metrics.hourlyCost).toBeLessThan(
+      second.observation.metrics.hourlyCost,
+    );
     expect(observe(replay(disabled.record))).toEqual(disabled.observation);
   });
 
   it('collects detailed logs only while enabled and gates plans independently', () => {
     const session = start();
     const installed = instrument(session, 'detailed-logs');
-    expect(installed.observation.logs.filter(log => log.at < 60).some(log => /sku=|wait_event|idle_in_transaction/.test(log.message))).toBe(false);
-    expect(session.execute({ type: 'tick', seconds: 10 }).observation.logs.some(log => log.at >= 60 && /sku=/.test(log.message))).toBe(true);
+    expect(
+      installed.observation.logs
+        .filter((log) => log.at < 60)
+        .some((log) => /sku=|wait_event|idle_in_transaction/.test(log.message)),
+    ).toBe(false);
+    expect(
+      session
+        .execute({ type: 'tick', seconds: 10 })
+        .observation.logs.some((log) => log.at >= 60 && /sku=/.test(log.message)),
+    ).toBe(true);
     instrument(session, 'query-plans');
-    expect(session.execute({ type: 'query-plan', endpoint: 'POST /checkout', queryId: 'checkout-pricing' }).queryPlan?.text).toContain('Seq Scan');
+    expect(
+      session.execute({
+        type: 'query-plan',
+        endpoint: 'POST /checkout',
+        queryId: 'checkout-pricing',
+      }).queryPlan?.text,
+    ).toContain('Seq Scan');
     const stopped = instrument(session, 'query-plans', false);
     expect(stopped.queryPlan).toBeNull();
-    expect(() => session.execute({ type: 'query-plan', endpoint: 'POST /checkout', queryId: 'checkout-pricing' })).toThrow();
+    expect(() =>
+      session.execute({
+        type: 'query-plan',
+        endpoint: 'POST /checkout',
+        queryId: 'checkout-pricing',
+      }),
+    ).toThrow();
   });
 
   it('requires valid explicit targets without mutating a rejected decision', () => {
     const session = start();
     const initial = session.execute({ type: 'tick', seconds: 0 });
-    for (const action of ['cache', 'create-index', 'scale-api', 'restart', 'stop-import', 'optimize-query']) {
+    for (const action of [
+      'cache',
+      'create-index',
+      'scale-api',
+      'restart',
+      'stop-import',
+      'optimize-query',
+    ]) {
       expect(() => session.execute({ type: 'action', action } as Command)).toThrow(/alvo/i);
-      expect(() => session.execute({ type: 'action', action, target: 'unknown' } as Command)).toThrow(/alvo/i);
+      expect(() =>
+        session.execute({ type: 'action', action, target: 'unknown' } as Command),
+      ).toThrow(/alvo/i);
     }
     expect(session.execute({ type: 'tick', seconds: 0 }).record).toEqual(initial.record);
   });
@@ -81,7 +130,9 @@ describe('free exploration', () => {
     const checkout = start();
     const a = apply(catalog, 'cache', 'GET /products', 120);
     const b = apply(checkout, 'cache', 'POST /checkout', 120);
-    expect(a.observation.metrics.databaseUtilization).toBeLessThan(b.observation.metrics.databaseUtilization);
+    expect(a.observation.metrics.databaseUtilization).toBeLessThan(
+      b.observation.metrics.databaseUtilization,
+    );
     expect(b.observation.metrics.errorRate).toBeCloseTo(8);
     const c = apply(catalog, 'cache', 'GET /orders', 120);
     expect(c.observation.metrics.hourlyCost).toBeGreaterThan(a.observation.metrics.hourlyCost);
@@ -93,7 +144,11 @@ describe('free exploration', () => {
     const session = start();
     instrument(session, 'query-plans');
     apply(session, 'create-index', 'checkout-pricing');
-    const plan = session.execute({ type: 'query-plan', endpoint: 'POST /checkout', queryId: 'checkout-pricing' });
+    const plan = session.execute({
+      type: 'query-plan',
+      endpoint: 'POST /checkout',
+      queryId: 'checkout-pricing',
+    });
     expect(plan.queryPlan?.text).toContain('price_rules_product_text_idx');
     expect(plan.queryPlan?.sql).toContain('product_id::text');
     expect(plan.observation.metrics.errorRate).toBeCloseTo(8);
@@ -145,10 +200,14 @@ describe('free exploration', () => {
     apply(session, 'replica');
     session.execute({ type: 'action', action: 'restart', target: 'replica' });
     const down = session.execute({ type: 'tick', seconds: 10 });
-    expect(down.observation.endpoints.find(endpoint => endpoint.path === 'GET /products')?.errorRate).toBe(50);
-    expect(down.observation.endpoints.find(endpoint => endpoint.path === 'POST /checkout')?.errorRate).toBe(40);
-    expect(down.observation.databaseSessions?.some(session => session.pid === 904)).toBe(true);
-    expect(down.observation.databaseSessions?.some(session => session.pid === 731)).toBe(true);
+    expect(
+      down.observation.endpoints.find((endpoint) => endpoint.path === 'GET /products')?.errorRate,
+    ).toBe(50);
+    expect(
+      down.observation.endpoints.find((endpoint) => endpoint.path === 'POST /checkout')?.errorRate,
+    ).toBe(40);
+    expect(down.observation.databaseSessions?.some((session) => session.pid === 904)).toBe(true);
+    expect(down.observation.databaseSessions?.some((session) => session.pid === 731)).toBe(true);
     expect(down.observation.database?.lockWaitMs).toBeGreaterThan(0);
     expect(down.observation.database?.activeConnections).toBeGreaterThan(25);
   });
@@ -166,14 +225,17 @@ describe('free exploration', () => {
     const session = start();
     apply(session, 'cache', 'GET /orders', 120);
     const ended = session.execute({ type: 'finish' });
-    expect(ended.report?.risks.some(risk => risk.name.includes('GET /orders'))).toBe(true);
-    expect(ended.report?.risks.some(risk => risk.name.includes('catálogo'))).toBe(false);
+    expect(ended.report?.risks.some((risk) => risk.name.includes('GET /orders'))).toBe(true);
+    expect(ended.report?.risks.some((risk) => risk.name.includes('catálogo'))).toBe(false);
   });
 
   it('keeps optional instrumentation usable in the first incident', () => {
     const session = start('mercado-01');
     instrument(session, 'database-sessions');
-    session.execute({ type: 'hypothesis', text: 'Verificar conexões ativas e transações do banco.' });
+    session.execute({
+      type: 'hypothesis',
+      text: 'Verificar conexões ativas e transações do banco.',
+    });
     expect(() => session.execute({ type: 'inspect-sessions' })).not.toThrow();
   });
 });

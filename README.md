@@ -4,7 +4,7 @@
 
 **Aprenda engenharia de software enfrentando o caos de sistemas reais.**
 
-*O código funciona. Até que não funciona mais. Você consegue descobrir por quê?*
+_O código funciona. Até que não funciona mais. Você consegue descobrir por quê?_
 
 ## 1. Resumo
 
@@ -183,11 +183,13 @@ Por exemplo:
 **Sistema:** plataforma fictícia de comércio eletrônico.
 
 **Arquitetura inicial:**
+
 - API REST.
 - Servidor de aplicação.
 - PostgreSQL.
 
 **Objetivos operacionais:**
+
 - Manter disponibilidade.
 - Preservar latência aceitável.
 - Controlar custos.
@@ -203,13 +205,13 @@ Exemplo:
 
 **Produção — Estado: degradado**
 
-| Métrica | Valor atual |
-|---|---:|
-| Requisições/s | 420 |
-| Latência p95 | 2.400 ms |
-| Erros 5xx | 8,3% |
-| CPU da API | 64% |
-| CPU do banco | 93% |
+| Métrica       | Valor atual |
+| ------------- | ----------: |
+| Requisições/s |         420 |
+| Latência p95  |    2.400 ms |
+| Erros 5xx     |        8,3% |
+| CPU da API    |         64% |
+| CPU do banco  |         93% |
 
 **Alertas recentes:**
 
@@ -249,12 +251,12 @@ Posteriormente:
 
 Por exemplo, ao investigar o tráfego por endpoint:
 
-| Endpoint | Requisições/min | Latência p95 |
-|---|---:|---:|
-| GET /products | 18.000 | 2.800 ms |
-| GET /products/:id | 4.200 | 180 ms |
-| POST /checkout | 900 | 3.100 ms |
-| GET /orders | 2.000 | 220 ms |
+| Endpoint          | Requisições/min | Latência p95 |
+| ----------------- | --------------: | -----------: |
+| GET /products     |          18.000 |     2.800 ms |
+| GET /products/:id |           4.200 |       180 ms |
+| POST /checkout    |             900 |     3.100 ms |
+| GET /orders       |           2.000 |       220 ms |
 
 O jogador pode investigar quais endpoints estão mais lentos, quais recebem mais tráfego e quais dependências utilizam.
 
@@ -285,6 +287,7 @@ Depois de investigar, o jogador pode modificar o sistema.
 As possibilidades incluem:
 
 **Componentes arquiteturais:**
+
 - Cache.
 - Read Replica.
 - CDN.
@@ -294,6 +297,7 @@ As possibilidades incluem:
 - Outros componentes introduzidos progressivamente.
 
 **Configurações:**
+
 - Número de instâncias.
 - Pool de conexões.
 - TTL de cache.
@@ -301,6 +305,7 @@ As possibilidades incluem:
 - Limites de requisições.
 
 **Ações operacionais:**
+
 - Rollback.
 - Reinicialização de serviços.
 - Desativação de funcionalidades.
@@ -459,12 +464,12 @@ As intervenções poderão consumir tempo simulado.
 
 Exemplos ilustrativos:
 
-| Intervenção | Tempo simulado |
-|---|---:|
-| Reiniciar aplicação | 1 minuto |
-| Alterar configuração | 2 minutos |
-| Executar rollback | 3 minutos |
-| Adicionar capacidade | 5 minutos |
+| Intervenção          | Tempo simulado |
+| -------------------- | -------------: |
+| Reiniciar aplicação  |       1 minuto |
+| Alterar configuração |      2 minutos |
+| Executar rollback    |      3 minutos |
+| Adicionar capacidade |      5 minutos |
 
 Esses tempos serão definidos conforme as abstrações educacionais de cada cenário.
 
@@ -500,14 +505,14 @@ Isso permitirá compartilhar resultados, comparar estratégias e validar partida
 
 ## 8. Catálogo de incidentes
 
-| Categoria | Exemplos | Aprendizado |
-|---|---|---|
-| Carga | Pico legítimo de tráfego, campanha de marketing | Escalabilidade, cache, filas e limites |
-| Humanos | Deploy com query sem índice, retry sem backoff, migration problemática | Rollback, deploy gradual e blast radius |
-| Adversariais | DDoS, scraping, credential stuffing | Rate limiting, WAF e identificação de tráfego |
-| Dependências externas | Gateway de pagamento lento ou indisponível | Timeouts, circuit breaker e fallback |
-| Dados | Replicação atrasada, backfill saturando o banco | Consistência, capacidade e recuperação |
-| Custos | Autoscaling descontrolado, excesso de logs | FinOps, observabilidade e limites |
+| Categoria             | Exemplos                                                               | Aprendizado                                   |
+| --------------------- | ---------------------------------------------------------------------- | --------------------------------------------- |
+| Carga                 | Pico legítimo de tráfego, campanha de marketing                        | Escalabilidade, cache, filas e limites        |
+| Humanos               | Deploy com query sem índice, retry sem backoff, migration problemática | Rollback, deploy gradual e blast radius       |
+| Adversariais          | DDoS, scraping, credential stuffing                                    | Rate limiting, WAF e identificação de tráfego |
+| Dependências externas | Gateway de pagamento lento ou indisponível                             | Timeouts, circuit breaker e fallback          |
+| Dados                 | Replicação atrasada, backfill saturando o banco                        | Consistência, capacidade e recuperação        |
+| Custos                | Autoscaling descontrolado, excesso de logs                             | FinOps, observabilidade e limites             |
 
 ### Princípios dos incidentes
 
@@ -859,17 +864,17 @@ Um objetivo futuro é publicar um postmortem de um incidente real enfrentado pel
 
 ## 13. Roadmap
 
-| Fase | Período estimado | Entrega |
-|---|---|---|
-| 0 | Semanas 0–1 | Fundação, análise de concorrentes e definição do primeiro incidente |
-| 1 | Semanas 1–3 | Motor determinístico e cenário headless |
-| 2 | Semanas 3–5 | Primeiro incidente jogável, investigação e controle do tempo |
-| 3 | Semanas 5–7 | Dificuldades, explicações, postmortem e testes com usuários |
-| 4 | Semana 8 | Lançamento inicial |
-| 5 | Semanas 9–12 | Mais dois cenários, melhorias de UX e internacionalização |
-| 6 | Semanas 13–16 | API, autenticação e persistência |
-| 7 | Semanas 17–20 | Ranking, incidente diário e novos cenários |
-| 8 | Semana 21+ | Infraestrutura avançada e expansão orientada por dados |
+| Fase | Período estimado | Entrega                                                             |
+| ---- | ---------------- | ------------------------------------------------------------------- |
+| 0    | Semanas 0–1      | Fundação, análise de concorrentes e definição do primeiro incidente |
+| 1    | Semanas 1–3      | Motor determinístico e cenário headless                             |
+| 2    | Semanas 3–5      | Primeiro incidente jogável, investigação e controle do tempo        |
+| 3    | Semanas 5–7      | Dificuldades, explicações, postmortem e testes com usuários         |
+| 4    | Semana 8         | Lançamento inicial                                                  |
+| 5    | Semanas 9–12     | Mais dois cenários, melhorias de UX e internacionalização           |
+| 6    | Semanas 13–16    | API, autenticação e persistência                                    |
+| 7    | Semanas 17–20    | Ranking, incidente diário e novos cenários                          |
+| 8    | Semana 21+       | Infraestrutura avançada e expansão orientada por dados              |
 
 O cronograma é uma estimativa, não um compromisso rígido.
 
@@ -1072,22 +1077,22 @@ O projeto não será avaliado apenas pela quantidade de visitantes, mas também 
 
 ## 17. Riscos e mitigação
 
-| Risco | Mitigação |
-|---|---|
-| Simulação tecnicamente incorreta | Modelos fundamentados, testes e revisão técnica |
-| Escopo excessivo | Primeiro incidente como produto completo |
-| Frustração de iniciantes | Dificuldades, catálogo reduzido e explicações |
-| Soluções evidentes | Sintomas ambíguos e alternativas plausíveis |
-| Ferramentas insuficientes | Validação dos cenários por dificuldade |
-| Simulação lenta | Motor de eventos discretos em Web Worker |
-| Inconsistência entre métricas e logs | Observabilidade derivada do estado do motor |
-| Excesso de complexidade arquitetural | Componentes introduzidos progressivamente |
-| Falta de interesse | Testes antecipados com usuários |
-| Alto custo de criação de cenários | Conteúdo declarativo e geração offline assistida |
-| Concorrência | Posicionamento em investigação e diagnóstico |
-| Indisponibilidade da API | Jogo independente no navegador |
-| Segurança e abuso | Validação, isolamento, limites e controles de acesso |
-| Resultados não reproduzíveis | Seed, versionamento e registro temporal das decisões |
+| Risco                                | Mitigação                                            |
+| ------------------------------------ | ---------------------------------------------------- |
+| Simulação tecnicamente incorreta     | Modelos fundamentados, testes e revisão técnica      |
+| Escopo excessivo                     | Primeiro incidente como produto completo             |
+| Frustração de iniciantes             | Dificuldades, catálogo reduzido e explicações        |
+| Soluções evidentes                   | Sintomas ambíguos e alternativas plausíveis          |
+| Ferramentas insuficientes            | Validação dos cenários por dificuldade               |
+| Simulação lenta                      | Motor de eventos discretos em Web Worker             |
+| Inconsistência entre métricas e logs | Observabilidade derivada do estado do motor          |
+| Excesso de complexidade arquitetural | Componentes introduzidos progressivamente            |
+| Falta de interesse                   | Testes antecipados com usuários                      |
+| Alto custo de criação de cenários    | Conteúdo declarativo e geração offline assistida     |
+| Concorrência                         | Posicionamento em investigação e diagnóstico         |
+| Indisponibilidade da API             | Jogo independente no navegador                       |
+| Segurança e abuso                    | Validação, isolamento, limites e controles de acesso |
+| Resultados não reproduzíveis         | Seed, versionamento e registro temporal das decisões |
 
 ---
 
