@@ -1196,13 +1196,15 @@ export function observe(run: Run) {
       errorRate:
         i === 2 && run.system.stoppedOperations.includes('checkout-processing')
           ? 100
-          : scenario.incident.kind === 'row-lock'
-            ? Math.max(endpointRestartShare(run, i) * 100, i === 2 ? checkoutErrors : 0)
-            : restartShare(run) > 0
-              ? endpointRestartShare(run, i) * 100
-              : run.system.stoppedOperations.includes('checkout-processing')
-                ? 0
-                : run.metrics.errorRate,
+          : i === 2 && segments.length && scenario.processes?.length
+            ? Math.max(endpointRestartShare(run, i) * 100, checkoutErrors)
+            : scenario.incident.kind === 'row-lock'
+              ? Math.max(endpointRestartShare(run, i) * 100, i === 2 ? checkoutErrors : 0)
+              : restartShare(run) > 0
+                ? endpointRestartShare(run, i) * 100
+                : run.system.stoppedOperations.includes('checkout-processing')
+                  ? 0
+                  : run.metrics.errorRate,
       dependency: 'PostgreSQL',
       queries: endpoint.queries.map((query) => ({ id: query.id, name: query.name })),
     })),

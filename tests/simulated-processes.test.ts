@@ -152,3 +152,26 @@ it('adds running process work to database demand', () => {
     scenario.databaseCapacity = originalCapacity;
   }
 });
+
+it('reports locked checkout errors for a scenario without the legacy row-lock incident kind', () => {
+  const scenario = getScenario('mercado-01');
+  const originalProcesses = scenario.processes;
+  const originalSegments = scenario.checkoutSegments;
+  scenario.processes = [definition];
+  scenario.checkoutSegments = [
+    {
+      sku: 'sku-123',
+      category: 'test',
+      share: 1,
+      lockAffected: false,
+      lockResource: { table: 'inventory', rowKey: 'sku-123' },
+    },
+  ];
+  try {
+    const run = createRun(42, 'guided', scenario.id);
+    expect(observe(run).endpoints[2].errorRate).toBe(100);
+  } finally {
+    scenario.processes = originalProcesses;
+    scenario.checkoutSegments = originalSegments;
+  }
+});
