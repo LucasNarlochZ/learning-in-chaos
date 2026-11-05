@@ -16,6 +16,7 @@ import {
   observe,
   intervene,
   advance,
+  replay,
 } from '../packages/sim-engine/src';
 
 const definition = {
@@ -103,5 +104,51 @@ it('blocks only checkout rows that conflict with a running process lock', () => 
   } finally {
     scenario.processes = originalProcesses;
     scenario.checkoutSegments = originalSegments;
+  }
+});
+
+it('replays process retries and stopping a scheduled process', () => {
+  const scenario = getScenario('mercado-02');
+  const original = scenario.processes;
+  scenario.processes = scenarioSchema.parse({ ...scenario, processes: [definition] }).processes;
+  try {
+    const run = createRun(42, 'free', scenario.id);
+    intervene(run, 'stop-import', undefined, definition.id);
+    advance(run, 120);
+    expect(run.processes[0].running).toBe(false);
+    expect(replay(run.record).processes[0].running).toBe(false);
+  } finally {
+    scenario.processes = original;
+  }
+});
+
+it('rejects duplicate process IDs or PIDs', () => {
+  const scenario = getScenario('mercado-02');
+  expect(
+    scenarioSchema.safeParse({ ...scenario, processes: [definition, { ...definition, pid: 901 }] })
+      .success,
+  ).toBe(false);
+  expect(
+    scenarioSchema.safeParse({
+      ...scenario,
+      processes: [definition, { ...definition, id: 'other' }],
+    }).success,
+  ).toBe(false);
+});
+
+it('adds running process work to database demand', () => {
+  const scenario = getScenario('mercado-02');
+  const original = scenario.processes;
+  const originalCapacity = scenario.databaseCapacity;
+  try {
+    scenario.databaseCapacity = 10000;
+    scenario.processes = [];
+    const without = createRun(42, 'guided', scenario.id).metrics.databaseUtilization;
+    scenario.processes = [definition];
+    const withProcess = createRun(42, 'guided', scenario.id).metrics.databaseUtilization;
+    expect(withProcess - without).toBeCloseTo(1.2);
+  } finally {
+    scenario.processes = original;
+    scenario.databaseCapacity = originalCapacity;
   }
 });

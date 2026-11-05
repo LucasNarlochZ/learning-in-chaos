@@ -114,6 +114,14 @@ export const scenarioSchema = z
   .refine(
     (s) => Math.abs(s.endpoints.reduce((sum, e) => sum + e.share, 0) - 1) < 0.001,
     'Endpoint shares must sum to one',
+  )
+  .refine(
+    (s) => new Set(s.processes?.map((process) => process.id)).size === (s.processes?.length ?? 0),
+    'Process IDs must be unique',
+  )
+  .refine(
+    (s) => new Set(s.processes?.map((process) => process.pid)).size === (s.processes?.length ?? 0),
+    'Process PIDs must be unique',
   );
 
 export type Scenario = z.infer<typeof scenarioSchema>;
