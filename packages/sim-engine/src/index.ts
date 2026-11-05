@@ -157,6 +157,14 @@ function overhead(run: Run) {
     );
 }
 
+function activeProcesses(run: Run) {
+  return run.processes.filter(
+    (process) =>
+      run.pending?.action !== 'restart' ||
+      (run.pending.target !== 'database' && run.pending.target !== process.definition.worker?.id),
+  );
+}
+
 function endpointRestartShare(run: Run, index: number) {
   if (run.pending?.action !== 'restart') return 0;
   const target = run.pending.target;
@@ -414,7 +422,7 @@ function measure(run: Run, tick: boolean): Metrics {
     overhead(run).databaseWork +
     system.indexes.length * 15 +
     backgroundWork(run) +
-    databaseWork(run.processes);
+    databaseWork(activeProcesses(run));
   const writeDemand = scenario.endpoints.reduce(
     (sum, e, i) =>
       sum +
@@ -431,7 +439,7 @@ function measure(run: Run, tick: boolean): Metrics {
           overhead(run).databaseWork -
           system.indexes.length * 15 -
           backgroundWork(run) -
-          databaseWork(run.processes),
+          databaseWork(activeProcesses(run)),
       ) / 2
     : 0;
   const primaryDemand = demand - replicaDemand;
@@ -1058,7 +1066,7 @@ function sessionDetails(run: Run): DatabaseSession[] {
   const locked = scenario.incident.kind === 'row-lock' && run.system.regression;
   const common = { application: 'mercado-worker', user: 'mercado_app' };
   return [
-    ...run.processes
+    ...activeProcesses(run)
       .filter((process) => process.running)
       .map((process) => ({
         pid: processPid(process),

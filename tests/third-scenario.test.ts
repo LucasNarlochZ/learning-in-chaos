@@ -77,6 +77,21 @@ describe('third difficult incident', () => {
       process.progressLogPrefix = original;
     }
   });
+
+  it('suspends worker sessions during a worker restart', () => {
+    const run = third('free');
+    configureInstrumentation(run, 'database-sessions', true);
+    advance(run, 60);
+    inspectSessions(run);
+    intervene(run, 'restart', undefined, 'reconciliation-worker');
+    expect(
+      observe(run).databaseSessions!.some((session) => session.connectionTag === 'c-r17'),
+    ).toBe(false);
+    advance(run, 60);
+    expect(
+      observe(run).databaseSessions!.some((session) => session.connectionTag === 'c-r17'),
+    ).toBe(true);
+  });
   it('offers a neutral third briefing without diagnosis or a suggested intervention', () => {
     const entry = scenarioCatalog.find((scenario) => scenario.id === 'mercado-03');
     expect(entry).toMatchObject({ number: '003', challenge: 'Intermediário' });
