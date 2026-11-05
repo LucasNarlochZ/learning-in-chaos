@@ -153,6 +153,22 @@ it('adds running process work to database demand', () => {
   }
 });
 
+it('does not suspend unrelated processes during an untargeted restart', () => {
+  const scenario = getScenario('mercado-02');
+  const original = scenario.processes;
+  scenario.processes = [definition];
+  try {
+    const run = createRun(42, 'guided', scenario.id);
+    run.pending = { action: 'restart', completesAt: 60 };
+    inspectSessions(run);
+    expect(observe(run).databaseSessions?.some((session) => session.pid === definition.pid)).toBe(
+      true,
+    );
+  } finally {
+    scenario.processes = original;
+  }
+});
+
 it('reports locked checkout errors for a scenario without the legacy row-lock incident kind', () => {
   const scenario = getScenario('mercado-01');
   const originalProcesses = scenario.processes;

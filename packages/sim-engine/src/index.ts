@@ -161,7 +161,8 @@ function activeProcesses(run: Run) {
   return run.processes.filter(
     (process) =>
       run.pending?.action !== 'restart' ||
-      (run.pending.target !== 'database' && run.pending.target !== process.definition.worker?.id),
+      (run.pending.target !== 'database' &&
+        (!process.definition.worker || run.pending.target !== process.definition.worker.id)),
   );
 }
 
