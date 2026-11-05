@@ -637,23 +637,25 @@ export function App({ client: providedClient }: { client?: Client }) {
                 </span>
               </div>
               <div className="scenario-filters" role="group" aria-label="Filtrar por dificuldade">
-                {['Todos', 'Inicial', 'Intermediário'].map((filter) => (
-                  <button
-                    key={filter}
-                    type="button"
-                    aria-pressed={scenarioFilter === filter}
-                    onClick={() => {
-                      setScenarioFilter(filter);
-                      const visible = scenarioCatalog.filter(
-                        (scenario) => filter === 'Todos' || scenario.challenge === filter,
-                      );
-                      if (!visible.some((scenario) => scenario.id === scenarioId))
-                        setScenarioId(visible[0].id);
-                    }}
-                  >
-                    {filter}
-                  </button>
-                ))}
+                {['Todos', ...new Set(scenarioCatalog.map((scenario) => scenario.challenge))].map(
+                  (filter) => (
+                    <button
+                      key={filter}
+                      type="button"
+                      aria-pressed={scenarioFilter === filter}
+                      onClick={() => {
+                        setScenarioFilter(filter);
+                        const visible = scenarioCatalog.filter(
+                          (scenario) => filter === 'Todos' || scenario.challenge === filter,
+                        );
+                        if (!visible.some((scenario) => scenario.id === scenarioId))
+                          setScenarioId(visible[0].id);
+                      }}
+                    >
+                      {filter}
+                    </button>
+                  ),
+                )}
               </div>
               <div className="scenario-cards">
                 {scenarioCatalog

@@ -5,9 +5,31 @@ import { App } from '../apps/web/src/App';
 import { ApplicationPanel } from '../apps/web/src/ApplicationPanel';
 import { EngineSession, type Client } from '../apps/web/src/session';
 import type { Observation } from '../packages/sim-engine/src';
-import { getScenario } from '../packages/scenarios/src';
+import { getScenario, scenarioCatalog } from '../packages/scenarios/src';
 
 afterEach(cleanup);
+
+it('offers filters for challenge labels defined by scenarios', async () => {
+  const original = scenarioCatalog[0].challenge;
+  scenarioCatalog[0].challenge = 'Avançado';
+  try {
+    const session = new EngineSession();
+    render(
+      <App
+        client={{
+          async dispatch(command) {
+            return session.execute(command);
+          },
+          terminate() {},
+        }}
+      />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Avançado' }));
+    expect(screen.getAllByRole('radio', { name: /Incidente 00/ })).toHaveLength(1);
+  } finally {
+    scenarioCatalog[0].challenge = original;
+  }
+});
 
 it('uses scenario configuration to show database sessions in guided mode', async () => {
   const scenario = getScenario('mercado-01');
