@@ -18,6 +18,20 @@ const third = (mode: 'guided' | 'free' = 'guided', seed = 42) =>
   createRun(seed, mode, 'mercado-03');
 
 describe('third difficult incident', () => {
+  it('defines the scheduled database workload as a simulated process', () => {
+    const process = getScenario('mercado-03').processes?.find(
+      (item) => item.id === 'orders-reconciliation',
+    );
+    expect(process).toMatchObject({ pid: 610, databaseWorkPerSecond: 820, retryAfterSeconds: 45 });
+    const run = third();
+    inspectSessions(run);
+    expect(run.processes.find((item) => item.definition.id === process!.id)?.running).toBe(true);
+    expect(observe(run).databaseSessions!.filter((session) => session.pid === 610)).toHaveLength(1);
+    advance(run, 10);
+    expect(
+      run.logs.find((entry) => entry.message.includes('job_progress') && entry.at === 10)?.message,
+    ).toContain('active=true db_work_per_second=820');
+  });
   it('offers a neutral third briefing without diagnosis or a suggested intervention', () => {
     const entry = scenarioCatalog.find((scenario) => scenario.id === 'mercado-03');
     expect(entry).toMatchObject({ number: '003', challenge: 'Intermediário' });
@@ -129,11 +143,17 @@ describe('third difficult incident', () => {
     inspectSessions(run);
     intervene(run, 'terminate-session', 610);
     advance(run, 30);
+    expect(run.events.some((event) => event.kind === 'job' && event.message.includes('45'))).toBe(
+      true,
+    );
     expect(
       observe(run).databaseSessions!.some((session) => session.connectionTag === 'c-r17'),
     ).toBe(false);
     expect(run.abortedCheckouts).toBe(0);
     advance(run, 45);
+    expect(
+      run.events.some((event) => event.kind === 'job' && event.message.includes('retomad')),
+    ).toBe(true);
     expect(
       observe(run).databaseSessions!.some(
         (session) => session.connectionTag === 'c-r17' && session.pid !== 610,

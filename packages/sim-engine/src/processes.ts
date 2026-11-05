@@ -4,6 +4,16 @@ export interface ProcessDefinition {
   databaseWorkPerSecond: number;
   locks: { table: string; rowKeys: string[]; mode: 'exclusive' }[];
   retryAfterSeconds?: number;
+  label?: string;
+  session?: {
+    application: string;
+    user: string;
+    connectionTag: string;
+    state: string;
+    transactionAge: number;
+    waitEvent: string;
+    query: string;
+  };
 }
 
 export interface SimulatedProcess {
@@ -11,6 +21,8 @@ export interface SimulatedProcess {
   running: boolean;
   stopped: boolean;
   retryAt: number | null;
+  attempts: number;
+  startedAt: number;
 }
 
 export function createProcesses(definitions: ProcessDefinition[]): SimulatedProcess[] {
@@ -19,6 +31,8 @@ export function createProcesses(definitions: ProcessDefinition[]): SimulatedProc
     running: true,
     stopped: false,
     retryAt: null,
+    attempts: 0,
+    startedAt: 0,
   }));
 }
 
@@ -40,7 +54,9 @@ export function conflictingProcesses(processes: SimulatedProcess[], table: strin
 }
 
 export function terminateProcess(processes: SimulatedProcess[], pid: number, at: number) {
-  const process = processes.find((item) => item.running && item.definition.pid === pid);
+  const process = processes.find(
+    (item) => item.running && item.definition.pid + item.attempts === pid,
+  );
   if (!process) return false;
   process.running = false;
   process.retryAt =
@@ -51,12 +67,17 @@ export function terminateProcess(processes: SimulatedProcess[], pid: number, at:
 }
 
 export function advanceProcesses(processes: SimulatedProcess[], at: number) {
+  const resumed: SimulatedProcess[] = [];
   for (const process of processes) {
     if (!process.stopped && process.retryAt !== null && process.retryAt <= at) {
       process.running = true;
+      process.attempts++;
+      process.startedAt = at;
       process.retryAt = null;
+      resumed.push(process);
     }
   }
+  return resumed;
 }
 
 export function stopProcess(processes: SimulatedProcess[], id: string) {

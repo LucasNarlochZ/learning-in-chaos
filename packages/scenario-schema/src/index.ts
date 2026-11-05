@@ -46,6 +46,18 @@ export const scenarioSchema = z
             }),
           ),
           retryAfterSeconds: z.number().int().positive().optional(),
+          label: z.string().min(1).optional(),
+          session: z
+            .object({
+              application: z.string(),
+              user: z.string(),
+              connectionTag: z.string(),
+              state: z.string(),
+              transactionAge: z.number().int().nonnegative(),
+              waitEvent: z.string(),
+              query: z.string(),
+            })
+            .optional(),
         }),
       )
       .optional(),

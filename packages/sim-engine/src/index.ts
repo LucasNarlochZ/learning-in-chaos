@@ -100,8 +100,6 @@ export interface Run {
     checkoutRegression: boolean;
     sessionPenaltyUntil: number;
     incorrectKills: number;
-    backgroundResumeAt: number;
-    backgroundAttempts: number;
     interruptedReadUntil: number;
     caches: string[];
     indexes: string[];
@@ -251,14 +249,14 @@ export function actionTargets(run: Run) {
       : []),
   ];
   const operations = [
-    ...(scenario.processes ?? []).map((process) => ({ id: process.id, label: process.id })),
+    ...(scenario.processes ?? []).map((process) => ({
+      id: process.id,
+      label: process.label ?? process.id,
+    })),
     { id: 'checkout-processing', label: 'checkout-processing · processamento de compras' },
     { id: 'receipt-delivery', label: 'receipt-delivery · entrega de recibos' },
     ...(scenario.incident.kind === 'row-lock'
       ? [{ id: 'inventory-sync', label: 'inventory-sync · execução 6f2' }]
-      : []),
-    ...(scenario.incident.kind === 'workload-contention'
-      ? [{ id: 'orders-reconciliation', label: 'orders-reconciliation · execução r17' }]
       : []),
   ];
   return {
@@ -331,16 +329,7 @@ export function configureInstrumentation(run: Run, metric: InstrumentId, enabled
 
 function backgroundWork(run: Run) {
   const scenario = getScenario(run.record.scenarioId);
-  if (
-    run.system.stoppedOperations.includes('orders-reconciliation') ||
-    run.record.elapsed < run.system.backgroundResumeAt
-  )
-    return 0;
-  if (
-    run.pending?.action === 'restart' &&
-    ['database', 'reconciliation-worker'].includes(run.pending.target ?? '')
-  )
-    return 0;
+  if (run.pending?.action === 'restart' && run.pending.target === 'database') return 0;
   return scenario.incident.backgroundWork;
 }
 
@@ -579,8 +568,6 @@ export function createRun(
       checkoutRegression: scenario.incident.kind === 'row-lock',
       sessionPenaltyUntil: 0,
       incorrectKills: 0,
-      backgroundResumeAt: 0,
-      backgroundAttempts: 0,
       interruptedReadUntil: 0,
       caches: [],
       indexes: [],
@@ -738,6 +725,9 @@ function complete(run: Run) {
   if (id === 'rollback') run.system.checkoutRegression = false;
   if (id === 'terminate-session') {
     const pid = run.pending!.targetPid!;
+    const process = run.processes.find(
+      (item) => item.running && item.definition.pid + item.attempts === pid,
+    );
     const processTerminated = terminateProcess(run.processes, pid, run.record.elapsed);
     if (processTerminated) {
       run.events.push({
@@ -745,17 +735,12 @@ function complete(run: Run) {
         kind: 'alert',
         message: `Sessão ${pid} encerrada; transação desfeita.`,
       });
-    } else if (
-      scenario.incident.kind === 'workload-contention' &&
-      pid === 610 + run.system.backgroundAttempts
-    ) {
-      run.system.backgroundResumeAt = run.record.elapsed + 45;
-      run.system.backgroundAttempts++;
-      run.events.push({
-        at: run.record.elapsed,
-        kind: 'job',
-        message: 'Execução r17 cancelada; agendador programou nova tentativa em 45s.',
-      });
+      if (process?.definition.retryAfterSeconds)
+        run.events.push({
+          at: run.record.elapsed,
+          kind: 'job',
+          message: `${process.definition.label ?? process.definition.id}: agendador programou nova tentativa em ${process.definition.retryAfterSeconds}s.`,
+        });
     } else if (scenario.incident.kind === 'workload-contention' && pid === 818) {
       run.system.interruptedReadUntil = run.record.elapsed + 30;
       run.failedRequests++;
@@ -781,7 +766,7 @@ function complete(run: Run) {
     run.logs.push({
       at: run.record.elapsed,
       kind: 'WARN',
-      message: `db_session pid=${pid} terminated rollback=true${processTerminated ? '' : pid === 731 ? ' connection_tag=c-6f2' : scenario.incident.kind === 'workload-contention' && (pid === 818 || pid === 609 + run.system.backgroundAttempts) ? ' checkout_aborted=false' : ' checkout_aborted=true reconnect_window=30s'}`,
+      message: `db_session pid=${pid} terminated rollback=true${processTerminated ? ' checkout_aborted=false' : pid === 731 ? ' connection_tag=c-6f2' : scenario.incident.kind === 'workload-contention' && pid === 818 ? ' checkout_aborted=false' : ' checkout_aborted=true reconnect_window=30s'}`,
     });
   }
   if (
@@ -888,7 +873,13 @@ export function advance(run: Run, seconds: number) {
       complete(run);
       continue;
     }
-    advanceProcesses(run.processes, run.record.elapsed);
+    for (const process of advanceProcesses(run.processes, run.record.elapsed)) {
+      run.events.push({
+        at: run.record.elapsed,
+        kind: 'job',
+        message: `${process.definition.label ?? process.definition.id} retomada pelo agendador; tentativa ${process.attempts + 1}.`,
+      });
+    }
     if (
       run.system.idleTimeout &&
       run.system.regression &&
@@ -906,17 +897,6 @@ export function advance(run: Run, seconds: number) {
         at: run.record.elapsed,
         kind: 'complete',
         message: 'Sessão 731 encerrada pelo limite de inatividade; transação desfeita.',
-      });
-    }
-    if (
-      getScenario(run.record.scenarioId).incident.kind === 'workload-contention' &&
-      run.record.elapsed === run.system.backgroundResumeAt &&
-      backgroundWork(run) > 0
-    ) {
-      run.events.push({
-        at: run.record.elapsed,
-        kind: 'job',
-        message: `Execução r17 retomada pelo agendador; tentativa ${run.system.backgroundAttempts + 1}.`,
       });
     }
     run.metrics = measure(run, true);
@@ -988,7 +968,7 @@ export function advance(run: Run, seconds: number) {
         run.logs.push({
           at: run.record.elapsed,
           kind: 'INFO',
-          message: `job_progress run_id=r17 connection_tag=c-r17 stage=historical_totals active=${backgroundWork(run) > 0} db_work_per_second=${backgroundWork(run)} idle_in_transaction=0 lock_wait_ms=0`,
+          message: `job_progress run_id=r17 connection_tag=c-r17 stage=historical_totals active=${databaseWork(run.processes) > 0} db_work_per_second=${databaseWork(run.processes)} idle_in_transaction=0 lock_wait_ms=0`,
         });
       } else
         run.logs.push({
@@ -1070,32 +1050,19 @@ function sessionDetails(run: Run): DatabaseSession[] {
     ...run.processes
       .filter((process) => process.running)
       .map((process) => ({
-        pid: process.definition.pid,
-        application: process.definition.id,
-        user: 'simulated',
-        connectionTag: process.definition.id,
-        state: 'active',
-        transactionAge: run.record.elapsed,
-        waitEvent: 'CPU',
+        pid: process.definition.pid + process.attempts,
+        application: process.definition.session?.application ?? process.definition.id,
+        user: process.definition.session?.user ?? 'simulated',
+        connectionTag: process.definition.session?.connectionTag ?? process.definition.id,
+        state: process.definition.session?.state ?? 'active',
+        transactionAge:
+          (process.attempts ? 0 : (process.definition.session?.transactionAge ?? 0)) +
+          run.record.elapsed -
+          process.startedAt,
+        waitEvent: process.definition.session?.waitEvent ?? 'CPU',
         blockedBy: null,
-        query: '',
+        query: process.definition.session?.query ?? '',
       })),
-    ...(scenario.incident.kind === 'workload-contention' && backgroundWork(run) > 0
-      ? [
-          {
-            ...common,
-            pid: 610 + run.system.backgroundAttempts,
-            connectionTag: 'c-r17',
-            state: 'active',
-            transactionAge: run.system.backgroundAttempts
-              ? run.record.elapsed - run.system.backgroundResumeAt
-              : 300 + run.record.elapsed,
-            waitEvent: 'IO: DataFileRead',
-            blockedBy: null,
-            query: "SELECT date_trunc('day', created_at), sum(total) FROM orders GROUP BY 1;",
-          },
-        ]
-      : []),
     ...(scenario.incident.kind === 'workload-contention' &&
     endpointRestartShare(run, 3) < 1 &&
     run.record.elapsed >= run.system.interruptedReadUntil

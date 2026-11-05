@@ -19,13 +19,31 @@
   "databaseCapacity": 1100,
   "apiCapacity": 600,
   "baselineRps": 300,
+  "processes": [
+    {
+      "id": "orders-reconciliation",
+      "label": "orders-reconciliation · execução r17",
+      "pid": 610,
+      "databaseWorkPerSecond": 820,
+      "locks": [],
+      "retryAfterSeconds": 45,
+      "session": {
+        "application": "mercado-worker",
+        "user": "mercado_app",
+        "connectionTag": "c-r17",
+        "state": "active",
+        "transactionAge": 300,
+        "waitEvent": "IO: DataFileRead",
+        "query": "SELECT date_trunc('day', created_at), sum(total) FROM orders GROUP BY 1;"
+      }
+    }
+  ],
   "incident": {
     "kind": "workload-contention",
     "productWork": 1,
     "deployedVersion": "v2.16.0",
     "queryEndpoint": "GET /orders",
-    "queryWorkMultiplier": 18,
-    "backgroundWork": 820
+    "queryWorkMultiplier": 18
   },
   "endpoints": [
     {
