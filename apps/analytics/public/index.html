@@ -435,6 +435,15 @@
           <div class="empty">Carregando feedback…</div>
         </div>
       </section>
+      <section class="panel" style="margin-top: 16px">
+        <div class="panel-head">
+          <h2>Inscritos para novidades</h2>
+          <span id="subscriber-count">0 INSCRITOS</span>
+        </div>
+        <div id="subscriber-list" class="feedback-grid">
+          <div class="empty">Carregando inscritos…</div>
+        </div>
+      </section>
       <p id="notice" class="notice" role="status"></p>
       <footer class="footer">ATUALIZAÇÃO AUTOMÁTICA A CADA 15 SEGUNDOS · DADOS LOCAIS</footer>
     </main>
@@ -532,6 +541,17 @@
                 )
                 .join('')
             : '<div class="empty">Nenhum feedback recebido ainda.</div>';
+          const subscribers = await get('/subscribers');
+          document.querySelector('#subscriber-count').textContent =
+            `${subscribers.length} INSCRITOS`;
+          document.querySelector('#subscriber-list').innerHTML = subscribers.length
+            ? subscribers
+                .map(
+                  (item) =>
+                    `<article class="feedback-card"><div class="feedback-card-head"><strong>${safe(item.email)}</strong><time>${safe(formatDate(item.createdAt))}</time></div></article>`,
+                )
+                .join('')
+            : '<div class="empty">Nenhum inscrito ainda.</div>';
           if (selectedId && sessions.some((session) => session.id === selectedId)) {
             const row = sessionsElement.querySelector(`[data-id="${CSS.escape(selectedId)}"]`);
             if (row) await showEvents(selectedId, row);

@@ -51,7 +51,10 @@ try {
   assert.match(denied.headers.get('www-authenticate') ?? '', /^Basic realm=/);
   const dashboard = await fetch(`${base}/dashboard`, { headers: { authorization: authHeader } });
   assert.equal(dashboard.status, 200);
-  assert.match(await dashboard.text(), /Partidas e atividade/);
+  const dashboardHtml = await dashboard.text();
+  assert.match(dashboardHtml, /Partidas e atividade/);
+  assert.match(dashboardHtml, /Inscritos para novidades/);
+  assert.match(dashboardHtml, /get\('\/subscribers'\)/);
 
   assert.equal((await fetch(`${base}/subscribers`)).status, 401);
   const subscribe = (email) =>
