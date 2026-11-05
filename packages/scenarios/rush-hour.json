@@ -29,6 +29,11 @@
   ],
   "initialLogs": [
     { "at": -3600, "kind": "INFO", "message": "traffic_summary requests_per_second=290" },
+    {
+      "at": -3000,
+      "kind": "INFO",
+      "message": "marketing campaign=black_friday status=started channel=site,email"
+    },
     { "at": -3000, "kind": "INFO", "message": "traffic_summary requests_per_second=305" },
     { "at": -2400, "kind": "INFO", "message": "traffic_summary requests_per_second=320" },
     { "at": -1800, "kind": "INFO", "message": "traffic_summary requests_per_second=390" },

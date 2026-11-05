@@ -9,6 +9,30 @@ import { getScenario, scenarioCatalog } from '../packages/scenarios/src';
 
 afterEach(cleanup);
 
+it('shows earlier traffic when the wider dashboard time window is selected', async () => {
+  const session = new EngineSession();
+  render(
+    <App
+      client={{
+        async dispatch(command) {
+          return session.execute(command);
+        },
+        terminate() {},
+      }}
+    />,
+  );
+  await userEvent.click(screen.getByRole('radio', { name: /Incidente 004/ }));
+  await userEvent.click(screen.getByRole('button', { name: /Entrar na sala do incidente/ }));
+  await userEvent.click(await screen.findByRole('button', { name: 'Pausar simulação' }));
+  expect(screen.getByRole('img', { name: /Tráfego de requisições ao longo/ })).toBeTruthy();
+  await userEvent.click(screen.getByRole('button', { name: 'Última hora' }));
+  expect(screen.getAllByText('−60:00').length).toBeGreaterThan(0);
+  expect(screen.getByText(/290–750 req\/s/)).toBeTruthy();
+  expect(screen.queryByText(/Referência 300 req\/s/)).toBeNull();
+  await userEvent.click(screen.getByRole('button', { name: 'Logs' }));
+  expect(screen.getByText(/campaign=black_friday/)).toBeTruthy();
+});
+
 it('offers filters for challenge labels defined by scenarios', async () => {
   const original = scenarioCatalog[0].challenge;
   scenarioCatalog[0].challenge = 'Especial';

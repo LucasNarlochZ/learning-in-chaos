@@ -91,16 +91,17 @@ function Chart({
   threshold,
 }: {
   history: Observation['history'];
-  metric: 'latency' | 'errors' | 'database';
+  metric: 'latency' | 'errors' | 'database' | 'rps';
   color: string;
   label: string;
   threshold?: number;
 }) {
-  const values = history.slice(-120);
+  const values = history;
   const max = Math.max(threshold ?? 0, ...values.map((p) => p[metric]), 1) * 1.18;
   const y = (v: number) => 108 - (v / max) * 94;
   const points = values.map(
-    (point, i) => `${(i / Math.max(1, values.length - 1)) * 480},${y(point[metric])}`,
+    (point) =>
+      `${((point.at - values[0].at) / Math.max(1, values[values.length - 1].at - values[0].at)) * 480},${y(point[metric])}`,
   );
   if (points.length === 1) points.push(`480,${y(values[0][metric])}`);
   return (
@@ -345,6 +346,7 @@ export function App({ client: providedClient }: { client?: Client }) {
   const [tab, setTab] = useState<Tab>('Overview');
   const [paused, setPaused] = useState(true);
   const [speed, setSpeed] = useState(1);
+  const [chartWindow, setChartWindow] = useState(120);
   const [error, setError] = useState('');
   const [storageError, setStorageError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -801,6 +803,8 @@ export function App({ client: providedClient }: { client?: Client }) {
       </p>
     );
   const metrics = view.metrics;
+  const chartHistory = view.history.filter((point) => point.at >= view.elapsed - chartWindow);
+  const chartStart = chartHistory[0]?.at ?? view.elapsed;
   const pressure =
     view.status !== 'active'
       ? 'calm'
@@ -1095,7 +1099,7 @@ export function App({ client: providedClient }: { client?: Client }) {
                       value={metrics.rps.toLocaleString('pt-BR')}
                       unit="req/s"
                     >
-                      Referência <b>300 req/s</b>
+                      Requisições recebidas
                     </Metric>
                     <Metric
                       title="Latência · p95"
@@ -1133,30 +1137,79 @@ export function App({ client: providedClient }: { client?: Client }) {
                 )}
                 {tab === 'Overview' && (
                   <>
+                    <div className="chart-window" role="group" aria-label="Período dos gráficos">
+                      <span>PERÍODO</span>
+                      <button
+                        type="button"
+                        aria-pressed={chartWindow === 120}
+                        onClick={() => setChartWindow(120)}
+                      >
+                        Últimos 2 minutos
+                      </button>
+                      <button
+                        type="button"
+                        aria-pressed={chartWindow === 3600}
+                        onClick={() => setChartWindow(3600)}
+                      >
+                        Última hora
+                      </button>
+                    </div>
                     <div className="chart-grid">
+                      <section className="panel chart-panel">
+                        <div className="panel-heading">
+                          <h2>
+                            <span className="legend-dot green" />
+                            Tráfego de requisições
+                          </h2>
+                          <span>REQ/S</span>
+                        </div>
+                        <div className="chart-value">
+                          {metrics.rps.toLocaleString('pt-BR')} <small>req/s</small>
+                          <span>
+                            Intervalo:{' '}
+                            {Math.min(...chartHistory.map((point) => point.rps)).toLocaleString(
+                              'pt-BR',
+                            )}
+                            –
+                            {Math.max(...chartHistory.map((point) => point.rps)).toLocaleString(
+                              'pt-BR',
+                            )}{' '}
+                            req/s
+                          </span>
+                        </div>
+                        <Chart
+                          history={chartHistory}
+                          metric="rps"
+                          color="#3DD6C6"
+                          label="Tráfego de requisições ao longo do tempo simulado"
+                        />
+                        <div className="chart-axis">
+                          <span>{clock(chartStart)}</span>
+                          <span>tempo simulado</span>
+                          <span>{clock(view.elapsed)}</span>
+                        </div>
+                      </section>
                       <section className="panel chart-panel">
                         <div className="panel-heading">
                           <h2>
                             <span className="legend-dot amber" />
                             Tempo de resposta
                           </h2>
-                          <span>
-                            p95 · ms <b>ÚLTIMOS 120s</b>
-                          </span>
+                          <span>p95 · ms</span>
                         </div>
                         <div className="chart-value">
                           {metrics.latency.toLocaleString('pt-BR')} <small>ms</small>
                           <span>··· meta de 800 ms</span>
                         </div>
                         <Chart
-                          history={view.history}
+                          history={chartHistory}
                           metric="latency"
                           color="#FFB020"
                           label="Latência p95 ao longo do tempo simulado"
                           threshold={800}
                         />
                         <div className="chart-axis">
-                          <span>{clock(Math.max(0, view.elapsed - 119))}</span>
+                          <span>{clock(chartStart)}</span>
                           <span>tempo simulado</span>
                           <span>{clock(view.elapsed)}</span>
                         </div>
@@ -1185,14 +1238,14 @@ export function App({ client: providedClient }: { client?: Client }) {
                           </span>
                         </div>
                         <Chart
-                          history={view.history}
+                          history={chartHistory}
                           metric="database"
                           color="#3DD6C6"
                           label="Utilização do banco ao longo do tempo simulado"
                           threshold={85}
                         />
                         <div className="chart-axis">
-                          <span>{clock(Math.max(0, view.elapsed - 119))}</span>
+                          <span>{clock(chartStart)}</span>
                           <span>tempo simulado</span>
                           <span>{clock(view.elapsed)}</span>
                         </div>

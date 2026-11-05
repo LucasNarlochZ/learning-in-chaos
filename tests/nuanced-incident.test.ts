@@ -161,11 +161,11 @@ it('does not attribute a result to an unfinished intervention', () => {
   expect(ended.report!.inferences[0]).toMatchObject({ completed: false, after: null });
 });
 
-it('retains intervention measurements after the rolling chart history expires', () => {
+it('retains intervention measurements after an extended investigation', () => {
   const session = start();
   session.execute({ type: 'action', action: 'rollback' });
   const ended = session.execute({ type: 'tick', seconds: 3600 });
-  expect(ended.observation.history[0].at).toBeGreaterThan(180);
+  expect(ended.observation.elapsed).toBe(3600);
   expect(ended.report!.inferences[0]).toMatchObject({
     completed: true,
     before: { errors: 8 },
