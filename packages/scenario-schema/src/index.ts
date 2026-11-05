@@ -47,6 +47,8 @@ export const scenarioSchema = z
           ),
           retryAfterSeconds: z.number().int().positive().optional(),
           label: z.string().min(1).optional(),
+          resolvesIncident: z.boolean().optional(),
+          guidedDefault: z.boolean().optional(),
           session: z
             .object({
               application: z.string(),

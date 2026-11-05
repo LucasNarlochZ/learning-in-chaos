@@ -15,6 +15,26 @@
   "databaseCapacity": 1100,
   "apiCapacity": 600,
   "baselineRps": 300,
+  "processes": [
+    {
+      "id": "inventory-sync",
+      "label": "inventory-sync · execução 6f2",
+      "pid": 731,
+      "databaseWorkPerSecond": 0,
+      "resolvesIncident": true,
+      "guidedDefault": true,
+      "locks": [{ "table": "products", "rowKeys": ["SKU-101", "SKU-102"], "mode": "exclusive" }],
+      "session": {
+        "application": "mercado-worker",
+        "user": "mercado_app",
+        "connectionTag": "c-6f2",
+        "state": "idle in transaction",
+        "transactionAge": 95,
+        "waitEvent": "Client: ClientRead",
+        "query": "UPDATE products SET stock = $1 WHERE id IN ('SKU-101', 'SKU-102');"
+      }
+    }
+  ],
   "incident": {
     "kind": "row-lock",
     "productWork": 1,
@@ -205,13 +225,15 @@
       "sku": "SKU-101",
       "category": "Eletrônicos",
       "share": 0.2,
-      "lockAffected": true
+      "lockAffected": false,
+      "lockResource": { "table": "products", "rowKey": "SKU-101" }
     },
     {
       "sku": "SKU-102",
       "category": "Eletrônicos",
       "share": 0.2,
-      "lockAffected": true
+      "lockAffected": false,
+      "lockResource": { "table": "products", "rowKey": "SKU-102" }
     },
     {
       "sku": "SKU-201",

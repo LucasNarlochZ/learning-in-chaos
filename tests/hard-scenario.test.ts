@@ -13,10 +13,29 @@ import {
   restoreRun,
 } from '../packages/sim-engine/src';
 import { EngineSession } from '../apps/web/src/session';
+import { getScenario } from '../packages/scenarios/src';
 
 const hard = (seed = 42) => createRun(seed, 'guided', 'mercado-02');
 
 describe('second incident: misleading correlations and row locks', () => {
+  it('defines the blocking import and locked rows as a simulated process', () => {
+    const process = getScenario('mercado-02').processes?.find(
+      (item) => item.id === 'inventory-sync',
+    );
+    expect(process).toMatchObject({
+      pid: 731,
+      locks: [{ table: 'products', rowKeys: ['SKU-101', 'SKU-102'] }],
+    });
+    const run = hard();
+    inspectSessions(run);
+    expect(observe(run).databaseSessions!.filter((session) => session.pid === 731)).toHaveLength(1);
+    intervene(run, 'terminate-session', 731);
+    advance(run, 30);
+    expect(run.processes.find((item) => item.definition.id === 'inventory-sync')?.running).toBe(
+      false,
+    );
+    expect(observe(run).checkoutBreakdown.every((segment) => segment.errorRate === 0)).toBe(true);
+  });
   it('shows healthy indexed queries and low database usage despite checkout failures', () => {
     const run = hard();
     const view = observe(run);

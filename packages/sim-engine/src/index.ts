@@ -255,9 +255,6 @@ export function actionTargets(run: Run) {
     })),
     { id: 'checkout-processing', label: 'checkout-processing · processamento de compras' },
     { id: 'receipt-delivery', label: 'receipt-delivery · entrega de recibos' },
-    ...(scenario.incident.kind === 'row-lock'
-      ? [{ id: 'inventory-sync', label: 'inventory-sync · execução 6f2' }]
-      : []),
   ];
   return {
     cache: scenario.endpoints.map((endpoint) => ({ id: endpoint.path, label: endpoint.path })),
@@ -730,6 +727,7 @@ function complete(run: Run) {
     );
     const processTerminated = terminateProcess(run.processes, pid, run.record.elapsed);
     if (processTerminated) {
+      if (process?.definition.resolvesIncident) run.system.regression = false;
       run.events.push({
         at: run.record.elapsed,
         kind: 'alert',
@@ -750,8 +748,7 @@ function complete(run: Run) {
         kind: 'alert',
         message: 'Consulta de pedidos interrompida; falhas de leitura durante 30s de reconexão.',
       });
-    } else if (pid === 731) run.system.regression = false;
-    else {
+    } else {
       run.abortedCheckouts++;
       run.failedRequests++;
       run.totalRequests++;
@@ -780,6 +777,10 @@ function complete(run: Run) {
     (!targeted || target === 'inventory-sync')
   ) {
     run.system.regression = false;
+    const process = run.processes.find(
+      (item) => item.definition.guidedDefault && (!targeted || item.definition.id === target),
+    );
+    if (process) stopProcess(run.processes, process.definition.id);
     run.events.push({
       at: run.record.elapsed,
       kind: 'alert',
@@ -804,7 +805,11 @@ function complete(run: Run) {
     );
   }
   if (id === 'restart' && (target === 'database' || target === 'inventory-worker')) {
-    if (scenario.incident.kind === 'row-lock') run.system.regression = false;
+    if (scenario.incident.kind === 'row-lock') {
+      run.system.regression = false;
+      for (const process of run.processes.filter((item) => item.definition.resolvesIncident))
+        stopProcess(run.processes, process.definition.id);
+    }
     run.events.push({
       at: run.record.elapsed,
       kind: 'alert',
@@ -887,6 +892,12 @@ export function advance(run: Run, seconds: number) {
       run.record.elapsed + 90 >= 180
     ) {
       run.system.regression = false;
+      for (const process of run.processes.filter((item) => item.definition.resolvesIncident))
+        terminateProcess(
+          run.processes,
+          process.definition.pid + process.attempts,
+          run.record.elapsed,
+        );
       run.logs.push({
         at: run.record.elapsed,
         kind: 'WARN',
@@ -1082,20 +1093,6 @@ function sessionDetails(run: Run): DatabaseSession[] {
           },
         ]
       : []),
-    ...(locked
-      ? [
-          {
-            ...common,
-            pid: 731,
-            connectionTag: 'c-6f2',
-            state: 'idle in transaction',
-            transactionAge: 95 + run.record.elapsed,
-            waitEvent: 'Client: ClientRead',
-            blockedBy: null,
-            query: "UPDATE products SET stock = $1 WHERE id IN ('SKU-101', 'SKU-102');",
-          },
-        ]
-      : []),
     ...(endpointRestartShare(run, 2) === 1 ||
     run.system.stoppedOperations.includes('checkout-processing')
       ? []
@@ -1109,7 +1106,10 @@ function sessionDetails(run: Run): DatabaseSession[] {
                   state: 'active',
                   transactionAge: run.system.lockTimeout ? 1 : 5,
                   waitEvent: 'Lock: transactionid',
-                  blockedBy: 731,
+                  blockedBy:
+                    run.processes.find(
+                      (process) => process.running && process.definition.resolvesIncident,
+                    )?.definition.pid ?? null,
                   query: "SELECT id, stock FROM products WHERE id = 'SKU-101' FOR UPDATE;",
                 },
               ]

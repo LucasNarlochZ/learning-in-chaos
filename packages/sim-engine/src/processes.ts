@@ -5,6 +5,8 @@ export interface ProcessDefinition {
   locks: { table: string; rowKeys: string[]; mode: 'exclusive' }[];
   retryAfterSeconds?: number;
   label?: string;
+  resolvesIncident?: boolean;
+  guidedDefault?: boolean;
   session?: {
     application: string;
     user: string;
