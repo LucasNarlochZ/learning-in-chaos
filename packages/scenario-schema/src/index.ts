@@ -32,6 +32,23 @@ export const scenarioSchema = z
     databaseCapacity: z.number().positive(),
     apiCapacity: z.number().positive(),
     baselineRps: z.number().positive(),
+    processes: z
+      .array(
+        z.object({
+          id: z.string().min(1),
+          pid: z.number().int().positive(),
+          databaseWorkPerSecond: z.number().nonnegative(),
+          locks: z.array(
+            z.object({
+              table: z.string().min(1),
+              rowKeys: z.array(z.string().min(1)).min(1),
+              mode: z.literal('exclusive'),
+            }),
+          ),
+          retryAfterSeconds: z.number().int().positive().optional(),
+        }),
+      )
+      .optional(),
     incident: z.object({
       kind: z
         .enum(['query-regression', 'row-lock', 'workload-contention'])

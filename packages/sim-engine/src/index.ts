@@ -1,4 +1,13 @@
 import { z } from 'zod';
+import {
+  createProcesses,
+  databaseWork,
+  terminateProcess,
+  advanceProcesses,
+  stopProcess,
+  resumeProcess,
+  type SimulatedProcess,
+} from './processes';
 import { getScenario, scenarioCatalog } from '../../scenarios/src';
 import {
   availableActions,
@@ -72,6 +81,7 @@ export interface InterventionMetrics {
 }
 export interface Run {
   record: RunRecord;
+  processes: SimulatedProcess[];
   status: 'active' | 'resolved' | 'ended';
   random: number;
   system: {
@@ -240,6 +250,7 @@ export function actionTargets(run: Run) {
       : []),
   ];
   const operations = [
+    ...(scenario.processes ?? []).map((process) => ({ id: process.id, label: process.id })),
     { id: 'checkout-processing', label: 'checkout-processing · processamento de compras' },
     { id: 'receipt-delivery', label: 'receipt-delivery · entrega de recibos' },
     ...(scenario.incident.kind === 'row-lock'
@@ -411,7 +422,8 @@ function measure(run: Run, tick: boolean): Metrics {
     rps * work * (1 - down) +
     overhead(run).databaseWork +
     system.indexes.length * 15 +
-    backgroundWork(run);
+    backgroundWork(run) +
+    databaseWork(run.processes);
   const writeDemand = scenario.endpoints.reduce(
     (sum, e, i) =>
       sum +
@@ -427,7 +439,8 @@ function measure(run: Run, tick: boolean): Metrics {
           writeDemand -
           overhead(run).databaseWork -
           system.indexes.length * 15 -
-          backgroundWork(run),
+          backgroundWork(run) -
+          databaseWork(run.processes),
       ) / 2
     : 0;
   const primaryDemand = demand - replicaDemand;
@@ -541,6 +554,7 @@ export function createRun(
   });
   const run: Run = {
     record,
+    processes: createProcesses(scenario.processes ?? []),
     status: 'active',
     random: seed,
     system: {
@@ -717,7 +731,14 @@ function complete(run: Run) {
   if (id === 'rollback') run.system.checkoutRegression = false;
   if (id === 'terminate-session') {
     const pid = run.pending!.targetPid!;
-    if (
+    const processTerminated = terminateProcess(run.processes, pid, run.record.elapsed);
+    if (processTerminated) {
+      run.events.push({
+        at: run.record.elapsed,
+        kind: 'alert',
+        message: `Sessão ${pid} encerrada; transação desfeita.`,
+      });
+    } else if (
       scenario.incident.kind === 'workload-contention' &&
       pid === 610 + run.system.backgroundAttempts
     ) {
@@ -753,7 +774,7 @@ function complete(run: Run) {
     run.logs.push({
       at: run.record.elapsed,
       kind: 'WARN',
-      message: `db_session pid=${pid} terminated rollback=true${pid === 731 ? ' connection_tag=c-6f2' : scenario.incident.kind === 'workload-contention' && (pid === 818 || pid === 609 + run.system.backgroundAttempts) ? ' checkout_aborted=false' : ' checkout_aborted=true reconnect_window=30s'}`,
+      message: `db_session pid=${pid} terminated rollback=true${processTerminated ? '' : pid === 731 ? ' connection_tag=c-6f2' : scenario.incident.kind === 'workload-contention' && (pid === 818 || pid === 609 + run.system.backgroundAttempts) ? ' checkout_aborted=false' : ' checkout_aborted=true reconnect_window=30s'}`,
     });
   }
   if (
@@ -774,6 +795,7 @@ function complete(run: Run) {
     });
   }
   if (id === 'stop-import' && target) {
+    stopProcess(run.processes, target);
     run.system.stoppedOperations.push(target);
     if (target === 'orders-reconciliation')
       run.events.push({
@@ -783,10 +805,12 @@ function complete(run: Run) {
           'Execução r17 e próximas tentativas suspensas; fechamento diário pendente de reprocessamento.',
       });
   }
-  if (id === 'resume-operation')
+  if (id === 'resume-operation') {
+    if (target) resumeProcess(run.processes, target);
     run.system.stoppedOperations = run.system.stoppedOperations.filter(
       (operation) => operation !== target,
     );
+  }
   if (id === 'restart' && (target === 'database' || target === 'inventory-worker')) {
     if (scenario.incident.kind === 'row-lock') run.system.regression = false;
     run.events.push({
@@ -857,6 +881,7 @@ export function advance(run: Run, seconds: number) {
       complete(run);
       continue;
     }
+    advanceProcesses(run.processes, run.record.elapsed);
     if (
       run.system.idleTimeout &&
       run.system.regression &&
@@ -1035,6 +1060,19 @@ function sessionDetails(run: Run): DatabaseSession[] {
   const locked = scenario.incident.kind === 'row-lock' && run.system.regression;
   const common = { application: 'mercado-worker', user: 'mercado_app' };
   return [
+    ...run.processes
+      .filter((process) => process.running)
+      .map((process) => ({
+        pid: process.definition.pid,
+        application: process.definition.id,
+        user: 'simulated',
+        connectionTag: process.definition.id,
+        state: 'active',
+        transactionAge: run.record.elapsed,
+        waitEvent: 'CPU',
+        blockedBy: null,
+        query: '',
+      })),
     ...(scenario.incident.kind === 'workload-contention' && backgroundWork(run) > 0
       ? [
           {

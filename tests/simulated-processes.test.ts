@@ -8,6 +8,15 @@ import {
   resumeProcess,
   conflictingProcesses,
 } from '../packages/sim-engine/src/processes';
+import { scenarioSchema } from '../packages/scenario-schema/src';
+import { getScenario } from '../packages/scenarios/src';
+import {
+  createRun,
+  inspectSessions,
+  observe,
+  intervene,
+  advance,
+} from '../packages/sim-engine/src';
 
 const definition = {
   id: 'inventory-import',
@@ -38,4 +47,22 @@ it('stopping a job cancels its retry until it is resumed', () => {
   expect(databaseWork(processes)).toBe(0);
   resumeProcess(processes, 'inventory-import');
   expect(databaseWork(processes)).toBe(120);
+});
+
+it('loads configured processes into the engine and terminates them through session inspection', () => {
+  const scenario = getScenario('mercado-02');
+  const parsed = scenarioSchema.parse({ ...scenario, processes: [definition] });
+  expect(parsed).toHaveProperty('processes');
+  const original = scenario.processes;
+  scenario.processes = parsed.processes;
+  try {
+    const run = createRun(42, 'guided', scenario.id);
+    inspectSessions(run);
+    expect(observe(run).databaseSessions?.some((session) => session.pid === 900)).toBe(true);
+    intervene(run, 'terminate-session', 900);
+    advance(run, 30);
+    expect(observe(run).databaseSessions?.some((session) => session.pid === 900)).toBe(false);
+  } finally {
+    scenario.processes = original;
+  }
 });
