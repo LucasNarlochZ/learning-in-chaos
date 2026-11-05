@@ -82,6 +82,24 @@ advance(difficultRun, 120);
 
 `advance` accepts whole seconds from 0 to 3600 per call and stops when the run ends. Rejected interventions do not change the run. Guided interventions are single-use except session termination and the explicitly targeted query/operation tools in incident 003. Free cache/index/query changes are single-use per target; scaling is bounded, and operational actions can repeat when their targets are eligible. Headless callers can access the report directly; the browser worker only returns it after an incident ends.
 
+### Simulated processes
+
+Scenario JSON may include a `processes` array. Each entry starts running and contributes database work to the primary database. For example:
+
+```json
+{
+  "id": "inventory-import",
+  "pid": 900,
+  "databaseWorkPerSecond": 120,
+  "locks": [{ "table": "inventory", "rowKeys": ["sku-123"], "mode": "exclusive" }],
+  "retryAfterSeconds": 45
+}
+```
+
+IDs and PIDs must be unique among configured processes. Inspecting database sessions exposes running processes; terminating one removes its work and locks, and schedules a retry when `retryAfterSeconds` is present. Stopping the corresponding operation cancels retries; resuming it starts the process again. Decisions are replayed using the scenario definition.
+
+Checkout segments can declare `"lockResource": { "table": "inventory", "rowKey": "sku-123" }`. A matching running process's exclusive lock makes that segment wait and fail; unrelated rows are unaffected. This is an aggregate checkout model, not a general SQL lock manager. Other endpoints do not yet declare row accesses, and the existing incidents still contain separate, hard-coded session and workload behavior. Avoid PIDs and operation IDs already used by those existing mechanics when defining additional processes.
+
 ## Where to work
 
 - `packages/sim-engine/src/index.ts`: deterministic state transitions, ordered event queue, telemetry, reports, and replay. It has no DOM, timer, network, or filesystem dependency.
