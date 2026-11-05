@@ -25,6 +25,7 @@
       "databaseWorkPerSecond": 0,
       "resolvesIncident": true,
       "guidedDefault": true,
+      "idleSecondsAtStart": 90,
       "locks": [{ "table": "products", "rowKeys": ["SKU-101", "SKU-102"], "mode": "exclusive" }],
       "session": {
         "application": "mercado-worker",

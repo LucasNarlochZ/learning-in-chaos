@@ -9,6 +9,7 @@ export interface ProcessDefinition {
   worker?: { id: string; label: string };
   resolvesIncident?: boolean;
   guidedDefault?: boolean;
+  idleSecondsAtStart?: number;
   operation?: boolean;
   reusePid?: boolean;
   interruptedReadSeconds?: number;

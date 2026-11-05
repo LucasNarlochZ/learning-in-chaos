@@ -886,30 +886,27 @@ export function advance(run: Run, seconds: number) {
         message: `${process.definition.label ?? process.definition.id} retomada pelo agendador; tentativa ${process.attempts + 1}.`,
       });
     }
-    if (
-      run.system.idleTimeout &&
-      run.system.regression &&
-      getScenario(run.record.scenarioId).incident.kind === 'row-lock' &&
-      run.record.elapsed + 90 >= 180
-    ) {
-      run.system.regression = false;
-      for (const process of run.processes.filter((item) => item.definition.resolvesIncident))
-        terminateProcess(
-          run.processes,
-          process.definition.pid + process.attempts,
-          run.record.elapsed,
-        );
-      run.logs.push({
-        at: run.record.elapsed,
-        kind: 'WARN',
-        message:
-          'db_session pid=731 terminated reason=idle_in_transaction_session_timeout rollback=true',
-      });
-      run.events.push({
-        at: run.record.elapsed,
-        kind: 'complete',
-        message: 'Sessão 731 encerrada pelo limite de inatividade; transação desfeita.',
-      });
+    if (run.system.idleTimeout) {
+      for (const process of run.processes.filter(
+        (item) =>
+          item.running &&
+          item.definition.idleSecondsAtStart !== undefined &&
+          item.definition.idleSecondsAtStart + run.record.elapsed - item.startedAt >= 180,
+      )) {
+        const pid = processPid(process);
+        terminateProcess(run.processes, pid, run.record.elapsed);
+        if (process.definition.resolvesIncident) run.system.regression = false;
+        run.logs.push({
+          at: run.record.elapsed,
+          kind: 'WARN',
+          message: `db_session pid=${pid} terminated reason=idle_in_transaction_session_timeout rollback=true`,
+        });
+        run.events.push({
+          at: run.record.elapsed,
+          kind: 'complete',
+          message: `Sessão ${pid} encerrada pelo limite de inatividade; transação desfeita.`,
+        });
+      }
     }
     run.metrics = measure(run, true);
     const evidence = run.interventionEvidence.find(

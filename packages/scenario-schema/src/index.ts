@@ -51,6 +51,7 @@ export const scenarioSchema = z
           worker: z.object({ id: z.string().min(1), label: z.string().min(1) }).optional(),
           resolvesIncident: z.boolean().optional(),
           guidedDefault: z.boolean().optional(),
+          idleSecondsAtStart: z.number().int().nonnegative().optional(),
           operation: z.boolean().optional(),
           reusePid: z.boolean().optional(),
           interruptedReadSeconds: z.number().int().positive().optional(),

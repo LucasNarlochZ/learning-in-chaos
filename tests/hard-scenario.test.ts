@@ -79,6 +79,24 @@ describe('second incident: misleading correlations and row locks', () => {
       process.id = original;
     }
   });
+
+  it('reports the configured PID when an idle process times out', () => {
+    const process = getScenario('mercado-02').processes![0];
+    const original = process.pid;
+    process.pid = 1777;
+    try {
+      const run = hard();
+      intervene(run, 'idle-timeout');
+      advance(run, 100);
+      expect(
+        run.logs.some((entry) =>
+          entry.message.includes('pid=1777 terminated reason=idle_in_transaction_session_timeout'),
+        ),
+      ).toBe(true);
+    } finally {
+      process.pid = original;
+    }
+  });
   it('shows healthy indexed queries and low database usage despite checkout failures', () => {
     const run = hard();
     const view = observe(run);
