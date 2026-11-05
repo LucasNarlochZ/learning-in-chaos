@@ -15,6 +15,7 @@ export const scenarioSchema = z
     id: z.string().min(1),
     version: z.enum(['1.0.0', '2.0.0']),
     title: z.string().min(1),
+    challenge: z.string().min(1),
     service: z.string().min(1),
     briefing: z.string().min(1),
     databaseCapacity: z.number().positive(),
