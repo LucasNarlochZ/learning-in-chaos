@@ -36,6 +36,17 @@ describe('second incident: misleading correlations and row locks', () => {
     );
     expect(observe(run).checkoutBreakdown.every((segment) => segment.errorRate === 0)).toBe(true);
   });
+
+  it('restores the lock and incident state when the stopped import is resumed', () => {
+    const run = createRun(42, 'free', 'mercado-02');
+    intervene(run, 'stop-import', undefined, 'inventory-sync');
+    advance(run, 120);
+    expect(run.system.regression).toBe(false);
+    intervene(run, 'resume-operation', undefined, 'inventory-sync');
+    advance(run, 60);
+    expect(run.system.regression).toBe(true);
+    expect(report(run).repaired).toBe(false);
+  });
   it('shows healthy indexed queries and low database usage despite checkout failures', () => {
     const run = hard();
     const view = observe(run);

@@ -799,7 +799,14 @@ function complete(run: Run) {
       });
   }
   if (id === 'resume-operation') {
-    if (target) resumeProcess(run.processes, target);
+    if (
+      target &&
+      resumeProcess(run.processes, target) &&
+      run.processes.some(
+        (process) => process.definition.id === target && process.definition.resolvesIncident,
+      )
+    )
+      run.system.regression = true;
     run.system.stoppedOperations = run.system.stoppedOperations.filter(
       (operation) => operation !== target,
     );
