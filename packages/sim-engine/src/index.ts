@@ -11,7 +11,7 @@ import {
   type Difficulty,
 } from '../../educational-content/src';
 
-export const ENGINE_VERSION = '2.0.0';
+export const ENGINE_VERSION = '3.0.0';
 const actionIds = interventions.map((a) => a.id) as [ActionId, ...ActionId[]];
 const decisionSchema = z.discriminatedUnion('kind', [
   z.object({
@@ -164,11 +164,53 @@ function restartShare(run: Run) {
   );
 }
 
+export function estimateCacheHitRate({
+  readsPerSecond,
+  writesPerSecond,
+  keys,
+  ttlSeconds,
+}: {
+  readsPerSecond: number;
+  writesPerSecond: number;
+  keys: number;
+  ttlSeconds: number;
+}) {
+  if (readsPerSecond <= 0) return 0;
+  return readsPerSecond / (readsPerSecond + writesPerSecond + keys / ttlSeconds);
+}
+
+function cacheHitRate(run: Run, path: string) {
+  if (run.pending?.action === 'restart' && run.pending.target === 'cache') return 0;
+  const scenario = getScenario(run.record.scenarioId);
+  const profile = cacheProfiles[path];
+  const endpointIndex = scenario.endpoints.findIndex((endpoint) => endpoint.path === path);
+  if (!profile || endpointIndex < 0) return 0;
+  const rate = (index: number) => {
+    const endpoint = scenario.endpoints[index];
+    if (
+      endpoint.path === 'POST /checkout' &&
+      run.system.stoppedOperations.includes('checkout-processing')
+    )
+      return 0;
+    return scenario.baselineRps * endpoint.share * (1 - endpointRestartShare(run, index));
+  };
+  const writesPerSecond = scenario.endpoints.reduce(
+    (sum, endpoint, index) => sum + rate(index) * (profile.writes[endpoint.path] ?? 0),
+    0,
+  );
+  return estimateCacheHitRate({
+    readsPerSecond: rate(endpointIndex),
+    writesPerSecond,
+    keys: profile.keys / (run.system.cacheScaled ? 1.2 : 1),
+    ttlSeconds: profile.ttlSeconds,
+  });
+}
+
 function cacheReduction(run: Run, path: string) {
   if (run.pending?.action === 'restart' && run.pending.target === 'cache') return 0;
-  if (run.system.caches.includes(path))
-    return Math.min(0.95, cacheProfiles[path].workReduction * (run.system.cacheScaled ? 1.2 : 1));
-  return path === 'GET /products' && run.system.cache ? 0.75 : 0;
+  if (run.system.caches.includes(path) || (path === 'GET /products' && run.system.cache))
+    return cacheHitRate(run, path) * cacheProfiles[path].cacheableWork;
+  return 0;
 }
 
 export function actionTargets(run: Run) {
@@ -920,7 +962,7 @@ export function advance(run: Run, seconds: number) {
         run.logs.push({
           at: run.record.elapsed,
           kind: slow ? 'WARN' : 'INFO',
-          message: `GET /products p95=${run.metrics.latency}ms plan=${run.system.regression ? 'SeqScan' : 'IndexScan'} rows_examined=${run.system.regression ? 48000 : 120} db_queue=${run.metrics.queue} cache=${run.system.cache ? '75% hit' : 'off'}`,
+          message: `GET /products p95=${run.metrics.latency}ms plan=${run.system.regression ? 'SeqScan' : 'IndexScan'} rows_examined=${run.system.regression ? 48000 : 120} db_queue=${run.metrics.queue} cache=${run.system.cache ? `${Math.round(cacheHitRate(run, 'GET /products') * 100)}% estimated hit` : 'off'}`,
         });
       if (run.metrics.errorRate > 1)
         run.logs.push({
@@ -1147,11 +1189,9 @@ export function observe(run: Run) {
     topology: {
       caches: run.system.caches.map((endpoint) => ({
         endpoint,
-        hitRate: Math.min(
-          0.95,
-          cacheProfiles[endpoint].hitRate * (run.system.cacheScaled ? 1.2 : 1),
-        ),
+        hitRate: cacheHitRate(run, endpoint),
       })),
+      catalogCacheHitRate: run.system.cache ? cacheHitRate(run, 'GET /products') : 0,
       indexes: run.system.indexes,
       stoppedOperations: run.system.stoppedOperations,
       replicaScaled: run.system.replicaScaled,

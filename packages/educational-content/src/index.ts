@@ -82,11 +82,29 @@ export function requiresActionTarget(mode: Difficulty, id: ActionId, scenarioId:
   );
 }
 
-export const cacheProfiles: Record<string, { hitRate: number; workReduction: number }> = {
-  'GET /products': { hitRate: 0.75, workReduction: 0.75 },
-  'GET /products/:id': { hitRate: 0.9, workReduction: 0.9 },
-  'GET /orders': { hitRate: 0.35, workReduction: 0.35 },
-  'POST /checkout': { hitRate: 0.1, workReduction: 0.1 },
+export const cacheProfiles: Record<
+  string,
+  { keys: number; ttlSeconds: number; cacheableWork: number; writes: Record<string, number> }
+> = {
+  'GET /products': {
+    keys: 1,
+    ttlSeconds: 60,
+    cacheableWork: 1,
+    writes: { 'POST /checkout': 0.02 },
+  },
+  'GET /products/:id': {
+    keys: 100,
+    ttlSeconds: 60,
+    cacheableWork: 1,
+    writes: { 'POST /checkout': 1 },
+  },
+  'GET /orders': { keys: 1000, ttlSeconds: 60, cacheableWork: 1, writes: { 'POST /checkout': 1 } },
+  'POST /checkout': {
+    keys: 100,
+    ttlSeconds: 60,
+    cacheableWork: 0.1,
+    writes: { 'POST /checkout': 1 },
+  },
 };
 export const interventions: {
   id: ActionId;
@@ -140,7 +158,7 @@ export const interventions: {
     seconds: 120,
     cost: 0.06,
     description:
-      'Atende leituras repetidas do catálogo em memória, com TTL de 60 segundos. O modelo considera 75% de acertos após a ativação.',
+      'Atende leituras repetidas do catálogo em memória, com TTL de 60 segundos. Os acertos estimados dependem das leituras e das atualizações.',
     tradeoff:
       'Os dados podem ficar desatualizados por até 60 segundos. Falhas de cache ainda consultam o banco. Adiciona US$ 0,06/h.',
     guided: true,

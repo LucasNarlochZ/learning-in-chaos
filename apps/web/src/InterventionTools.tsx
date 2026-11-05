@@ -2,7 +2,6 @@ import { useId, useState } from 'react';
 import {
   availableActions,
   requiresActionTarget,
-  cacheProfiles,
   type ActionId,
   type Difficulty,
 } from '../../../packages/educational-content/src';
@@ -132,8 +131,7 @@ export function InterventionTools({
                             )}
                             {item.id === 'cache' && targeted && valid && (
                               <p className="target-estimate">
-                                Acertos estimados: {Math.round(cacheProfiles[target].hitRate * 100)}
-                                %.{' '}
+                                Acertos dependem do tráfego e das atualizações.{' '}
                                 {target.startsWith('POST')
                                   ? 'Cache somente de leituras auxiliares; confirmação e estoque sempre consultam o banco.'
                                   : 'Chave por produto ou cliente; TTL de 60s.'}

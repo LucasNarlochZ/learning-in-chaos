@@ -253,7 +253,12 @@ function Topology({ view, expanded = false }: { view: Observation; expanded?: bo
       </div>
       {(view.topology.cache || view.topology.caches.length > 0 || view.topology.replica) && (
         <div className="topology-additions">
-          {view.topology.cache && <span>◇ Cache de catálogo · TTL de 60s · 75% de acertos</span>}
+          {view.topology.cache && (
+            <span>
+              ◇ Cache de catálogo · TTL de 60s ·{' '}
+              {Math.round(view.topology.catalogCacheHitRate * 100)}% de acertos estimados
+            </span>
+          )}
           {view.topology.caches.map((cache) => (
             <span key={cache.endpoint}>
               ◇ Cache · {cache.endpoint} · {Math.round(cache.hitRate * 100)}% de acertos
