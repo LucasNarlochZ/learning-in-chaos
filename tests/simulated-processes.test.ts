@@ -66,3 +66,42 @@ it('loads configured processes into the engine and terminates them through sessi
     scenario.processes = original;
   }
 });
+
+it('blocks only checkout rows that conflict with a running process lock', () => {
+  const scenario = getScenario('mercado-02');
+  const originalProcesses = scenario.processes;
+  const originalSegments = scenario.checkoutSegments;
+  const parsed = scenarioSchema.parse({
+    ...scenario,
+    processes: [definition],
+    checkoutSegments: [
+      {
+        sku: 'sku-123',
+        category: 'test',
+        share: 0.5,
+        lockAffected: false,
+        lockResource: { table: 'inventory', rowKey: 'sku-123' },
+      },
+      {
+        sku: 'sku-456',
+        category: 'test',
+        share: 0.5,
+        lockAffected: false,
+        lockResource: { table: 'inventory', rowKey: 'sku-456' },
+      },
+    ],
+  });
+  scenario.processes = parsed.processes;
+  scenario.checkoutSegments = parsed.checkoutSegments;
+  try {
+    const run = createRun(42, 'guided', scenario.id);
+    expect(observe(run).checkoutBreakdown.map((segment) => segment.errorRate)).toEqual([100, 0]);
+    inspectSessions(run);
+    intervene(run, 'terminate-session', 900);
+    advance(run, 30);
+    expect(observe(run).checkoutBreakdown.map((segment) => segment.errorRate)).toEqual([0, 0]);
+  } finally {
+    scenario.processes = originalProcesses;
+    scenario.checkoutSegments = originalSegments;
+  }
+});

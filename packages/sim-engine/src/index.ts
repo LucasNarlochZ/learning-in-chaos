@@ -4,6 +4,7 @@ import {
   databaseWork,
   terminateProcess,
   advanceProcesses,
+  conflictingProcesses,
   stopProcess,
   resumeProcess,
   type SimulatedProcess,
@@ -355,7 +356,7 @@ function endpointWork(run: Run, index: number) {
   );
 }
 
-function endpointLatency(run: Run, index: number, affectedProduct = true) {
+function endpointLatency(run: Run, index: number, affectedProduct = true, processLocked = false) {
   const scenario = getScenario(run.record.scenarioId);
   if (endpointRestartShare(run, index) >= 0.05) return 5000 + overhead(run).latency;
   const endpoint = scenario.endpoints[index];
@@ -366,10 +367,9 @@ function endpointLatency(run: Run, index: number, affectedProduct = true) {
   if (index === 2 && run.system.stoppedOperations.includes('checkout-processing'))
     return 5000 + checkoutDelay;
   if (
-    scenario.incident.kind === 'row-lock' &&
-    run.system.regression &&
-    index === 2 &&
-    affectedProduct
+    ((scenario.incident.kind === 'row-lock' && run.system.regression && affectedProduct) ||
+      processLocked) &&
+    index === 2
   )
     return (run.system.lockTimeout ? 1000 : 5000) + checkoutDelay;
   const work = endpointWork(run, index) * (1 - cacheReduction(run, endpoint.path));
@@ -392,17 +392,24 @@ function checkoutBreakdown(run: Run) {
   const scenario = getScenario(run.record.scenarioId);
   const down = endpointRestartShare(run, 2);
   const penalized = run.record.elapsed < run.system.sessionPenaltyUntil;
-  return (scenario.checkoutSegments ?? []).map((segment) => ({
-    sku: segment.sku,
-    category: segment.category,
-    share: segment.share,
-    latency: endpointLatency(run, 2, segment.lockAffected),
-    errorRate:
-      run.system.stoppedOperations.includes('checkout-processing') ||
-      (run.system.regression && segment.lockAffected)
-        ? 100
-        : Math.max(down * 100, penalized ? 20 : 0),
-  }));
+  return (scenario.checkoutSegments ?? []).map((segment) => {
+    const processLocked = segment.lockResource
+      ? conflictingProcesses(run.processes, segment.lockResource.table, segment.lockResource.rowKey)
+          .length > 0
+      : false;
+    return {
+      sku: segment.sku,
+      category: segment.category,
+      share: segment.share,
+      latency: endpointLatency(run, 2, segment.lockAffected, processLocked),
+      errorRate:
+        run.system.stoppedOperations.includes('checkout-processing') ||
+        (run.system.regression && segment.lockAffected) ||
+        processLocked
+          ? 100
+          : Math.max(down * 100, penalized ? 20 : 0),
+    };
+  });
 }
 
 function measure(run: Run, tick: boolean): Metrics {

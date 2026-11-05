@@ -68,6 +68,9 @@ export const scenarioSchema = z
           category: z.string(),
           share: z.number().positive().max(1),
           lockAffected: z.boolean(),
+          lockResource: z
+            .object({ table: z.string().min(1), rowKey: z.string().min(1) })
+            .optional(),
         }),
       )
       .refine(
