@@ -111,6 +111,18 @@ export const scenarioSchema = z
         }),
       )
       .optional(),
+    initialHistory: z
+      .array(
+        z.object({
+          at: z.number().int().negative(),
+          rps: z.number().nonnegative(),
+          latency: z.number().nonnegative(),
+          errors: z.number().nonnegative(),
+          database: z.number().nonnegative(),
+        }),
+      )
+      .refine((points) => points.every((point, i) => i === 0 || point.at > points[i - 1].at))
+      .optional(),
     initialEvents: z
       .array(
         z.object({

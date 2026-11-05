@@ -16,7 +16,38 @@
   "apiCapacity": 500,
   "baselineRps": 750,
   "incident": { "kind": "api-overload", "productWork": 1, "deployedVersion": "v2.17.0" },
+  "initialHistory": [
+    { "at": -3600, "rps": 290, "latency": 125, "errors": 0.1, "database": 10 },
+    { "at": -3000, "rps": 305, "latency": 130, "errors": 0.1, "database": 11 },
+    { "at": -2400, "rps": 320, "latency": 135, "errors": 0.1, "database": 11 },
+    { "at": -1800, "rps": 390, "latency": 145, "errors": 0.2, "database": 14 },
+    { "at": -1200, "rps": 470, "latency": 210, "errors": 0.3, "database": 16 },
+    { "at": -900, "rps": 540, "latency": 1800, "errors": 7.4, "database": 18 },
+    { "at": -600, "rps": 620, "latency": 1800, "errors": 19.4, "database": 18 },
+    { "at": -300, "rps": 690, "latency": 1800, "errors": 27.5, "database": 18 },
+    { "at": -60, "rps": 740, "latency": 1800, "errors": 32.4, "database": 18 }
+  ],
   "initialLogs": [
+    { "at": -3600, "kind": "INFO", "message": "traffic_summary requests_per_second=290" },
+    { "at": -3000, "kind": "INFO", "message": "traffic_summary requests_per_second=305" },
+    { "at": -2400, "kind": "INFO", "message": "traffic_summary requests_per_second=320" },
+    { "at": -1800, "kind": "INFO", "message": "traffic_summary requests_per_second=390" },
+    { "at": -1200, "kind": "INFO", "message": "traffic_summary requests_per_second=470" },
+    {
+      "at": -900,
+      "kind": "WARN",
+      "message": "traffic_summary requests_per_second=540 status_5xx=7.4%"
+    },
+    {
+      "at": -600,
+      "kind": "WARN",
+      "message": "traffic_summary requests_per_second=620 status_5xx=19.4%"
+    },
+    {
+      "at": -300,
+      "kind": "WARN",
+      "message": "traffic_summary requests_per_second=690 status_5xx=27.5%"
+    },
     {
       "at": -30,
       "kind": "WARN",
@@ -26,14 +57,14 @@
     {
       "at": -10,
       "kind": "INFO",
-      "message": "traffic_summary requests_per_second=750 previous_baseline=300"
+      "message": "traffic_summary requests_per_second=750"
     }
   ],
   "initialEvents": [
     {
-      "at": -600,
+      "at": -3000,
       "kind": "baseline",
-      "message": "Referência recente: 300 requisições por segundo."
+      "message": "Início da campanha de Black Friday no site e nos canais de divulgação."
     },
     { "at": -120, "kind": "deploy", "message": "Atualização de conteúdo publicada no site." },
     { "at": -45, "kind": "alert", "message": "Alerta: erros e latência acima das metas." },

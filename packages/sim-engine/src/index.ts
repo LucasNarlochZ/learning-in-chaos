@@ -124,7 +124,7 @@ export interface Run {
     followUp: (InterventionMetrics & { at: number }) | null;
   }[];
   metrics: Metrics;
-  history: { at: number; latency: number; errors: number; database: number }[];
+  history: { at: number; rps: number; latency: number; errors: number; database: number }[];
   logs: Entry[];
   events: Entry[];
   hypotheses: { at: number; text: string }[];
@@ -601,7 +601,7 @@ export function createRun(
     completed: [],
     interventionEvidence: [],
     metrics: {} as Metrics,
-    history: [],
+    history: structuredClone(scenario.initialHistory ?? []),
     logs: scenario.initialLogs
       ? structuredClone(scenario.initialLogs)
       : [
@@ -661,6 +661,7 @@ export function createRun(
   run.metrics = measure(run, false);
   run.history.push({
     at: 0,
+    rps: run.metrics.rps,
     latency: run.metrics.latency,
     errors: run.metrics.errorRate,
     database: run.metrics.databaseUtilization,
@@ -961,11 +962,12 @@ export function advance(run: Run, seconds: number) {
     run.cost += run.metrics.hourlyCost / 3600;
     run.history.push({
       at: run.record.elapsed,
+      rps: run.metrics.rps,
       latency: run.metrics.latency,
       errors: run.metrics.errorRate,
       database: run.metrics.databaseUtilization,
     });
-    if (run.history.length > 1800) run.history.shift();
+    if (run.history.length > 4000) run.history.shift();
     if (run.record.elapsed % 10 === 0) {
       const slow = run.metrics.latency >= 800;
       const lockingIncident = getScenario(run.record.scenarioId).incident.kind === 'row-lock';
