@@ -73,7 +73,11 @@
     },
     { "at": -120, "kind": "deploy", "message": "Atualização de conteúdo publicada no site." },
     { "at": -45, "kind": "alert", "message": "Alerta: erros e latência acima das metas." },
-    { "at": -15, "kind": "customer", "message": "Clientes relatam erros em diferentes telas." }
+    {
+      "at": -15,
+      "kind": "customer",
+      "message": "“Tentei abrir os produtos e finalizar minha compra, mas a loja fica dando erro.”"
+    }
   ],
   "endpoints": [
     {
