@@ -485,7 +485,7 @@ function measure(run: Run, tick: boolean): Metrics {
 export function createRun(
   seed = 42,
   difficulty: Difficulty = 'guided',
-  scenarioId = 'mercado-01',
+  scenarioId = scenarioCatalog[0].id,
 ): Run {
   const scenario = getScenario(scenarioId);
   const record = recordSchema.parse({

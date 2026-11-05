@@ -15,7 +15,7 @@ import { CheckoutBreakdown } from './CheckoutBreakdown';
 import { Observability } from './Observability';
 import { InterventionTools } from './InterventionTools';
 import { InterventionReview } from './InterventionReview';
-import { scenarioCatalog } from '../../../packages/scenarios/src';
+import { getScenario, scenarioCatalog } from '../../../packages/scenarios/src';
 import type { Client, Command, Snapshot } from './session';
 import { createAnalyticsSession, type AnalyticsClient } from './analytics';
 import { FeedbackForm } from './FeedbackForm';
@@ -335,7 +335,7 @@ export function App({ client: providedClient }: { client?: Client }) {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [mode, setMode] = useState<Difficulty>('guided');
   const [seed, setSeed] = useState('42');
-  const [scenarioId, setScenarioId] = useState('mercado-01');
+  const [scenarioId, setScenarioId] = useState(scenarioCatalog[0].id);
   const [scenarioFilter, setScenarioFilter] = useState('Todos');
   const [tab, setTab] = useState<Tab>('Overview');
   const [paused, setPaused] = useState(true);
@@ -951,13 +951,9 @@ export function App({ client: providedClient }: { client?: Client }) {
                 <p className="section-description">
                   {snapshot.report.resolved ? 'Serviço recuperado' : 'Investigação encerrada'} às{' '}
                   {clock(snapshot.report.elapsed)} ·{' '}
-                  {snapshot.record.scenarioId !== 'mercado-01'
-                    ? snapshot.report.repaired
-                      ? 'Causa removida'
-                      : 'Causa ainda presente'
-                    : snapshot.report.repaired
-                      ? 'Regressão corrigida'
-                      : 'Regressão ainda presente'}
+                  {snapshot.report.repaired
+                    ? getScenario(snapshot.record.scenarioId).presentation.repairedLabel
+                    : getScenario(snapshot.record.scenarioId).presentation.unrepairedLabel}
                 </p>
                 <div className="report-stats">
                   <Metric title="Duração simulada" value={clock(snapshot.report.elapsed)} unit="">
@@ -1283,7 +1279,8 @@ export function App({ client: providedClient }: { client?: Client }) {
                       <CheckoutBreakdown segments={view.checkoutBreakdown} />
                     ) : (
                       mode === 'free' &&
-                      snapshot.record.scenarioId === 'mercado-02' && (
+                      getScenario(snapshot.record.scenarioId).presentation
+                        .showCheckoutDimensionGap && (
                         <TelemetryGap
                           title="Dimensões das compras não instrumentadas"
                           onConfigure={() => setTab('Observability')}
@@ -1310,7 +1307,9 @@ export function App({ client: providedClient }: { client?: Client }) {
                         onConfigure={() => setTab('Observability')}
                       />
                     )}
-                    {(snapshot.record.scenarioId !== 'mercado-01' || mode === 'free') && (
+                    {(getScenario(snapshot.record.scenarioId).presentation
+                      .showDatabaseSessionsInGuided ||
+                      mode === 'free') && (
                       <div
                         ref={databasePanel}
                         role="region"

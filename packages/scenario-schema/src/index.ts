@@ -16,6 +16,12 @@ export const scenarioSchema = z
     version: z.enum(['1.0.0', '2.0.0']),
     title: z.string().min(1),
     challenge: z.string().min(1),
+    presentation: z.object({
+      showDatabaseSessionsInGuided: z.boolean(),
+      showCheckoutDimensionGap: z.boolean(),
+      repairedLabel: z.string().min(1),
+      unrepairedLabel: z.string().min(1),
+    }),
     actions: z.object({
       guidedExtra: z.array(z.enum(['stop-import', 'terminate-session'])),
       guidedTargeted: z.array(z.enum(['stop-import', 'create-index', 'optimize-query'])),

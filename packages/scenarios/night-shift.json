@@ -1,6 +1,12 @@
 {
   "id": "mercado-03",
   "challenge": "Intermediário",
+  "presentation": {
+    "showDatabaseSessionsInGuided": true,
+    "showCheckoutDimensionGap": false,
+    "repairedLabel": "Causa removida",
+    "unrepairedLabel": "Causa ainda presente"
+  },
   "actions": {
     "guidedExtra": ["stop-import", "terminate-session"],
     "guidedTargeted": ["stop-import", "create-index", "optimize-query"],

@@ -5,8 +5,34 @@ import { App } from '../apps/web/src/App';
 import { ApplicationPanel } from '../apps/web/src/ApplicationPanel';
 import { EngineSession, type Client } from '../apps/web/src/session';
 import type { Observation } from '../packages/sim-engine/src';
+import { getScenario } from '../packages/scenarios/src';
 
 afterEach(cleanup);
+
+it('uses scenario configuration to show database sessions in guided mode', async () => {
+  const scenario = getScenario('mercado-01');
+  const original = scenario.presentation.showDatabaseSessionsInGuided;
+  scenario.presentation.showDatabaseSessionsInGuided = true;
+  try {
+    const session = new EngineSession();
+    render(
+      <App
+        client={{
+          async dispatch(command) {
+            return session.execute(command);
+          },
+          terminate() {},
+        }}
+      />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: /Entrar na sala do incidente/ }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Pausar simulação' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Aplicação' }));
+    expect(screen.getByRole('region', { name: 'Seleção de sessão do banco' })).toBeTruthy();
+  } finally {
+    scenario.presentation.showDatabaseSessionsInGuided = original;
+  }
+});
 
 it('filters incident cards by difficulty and starts the selected incident', async () => {
   const session = new EngineSession();

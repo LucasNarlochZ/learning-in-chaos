@@ -1,6 +1,12 @@
 {
   "id": "mercado-01",
   "challenge": "Inicial",
+  "presentation": {
+    "showDatabaseSessionsInGuided": false,
+    "showCheckoutDimensionGap": false,
+    "repairedLabel": "Regressão corrigida",
+    "unrepairedLabel": "Regressão ainda presente"
+  },
   "actions": { "guidedExtra": [], "guidedTargeted": [] },
   "version": "1.0.0",
   "title": "Uma tarde tranquila. Até agora.",
