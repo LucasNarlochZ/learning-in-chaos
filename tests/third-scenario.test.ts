@@ -62,6 +62,21 @@ describe('third difficult incident', () => {
       process.id = original;
     }
   });
+
+  it('uses process configuration for job progress evidence', () => {
+    const process = getScenario('mercado-03').processes![0];
+    const original = process.progressLogPrefix;
+    process.progressLogPrefix = 'job_progress run_id=custom';
+    try {
+      const run = third();
+      advance(run, 10);
+      expect(
+        run.logs.some((entry) => entry.message.includes('job_progress run_id=custom active=true')),
+      ).toBe(true);
+    } finally {
+      process.progressLogPrefix = original;
+    }
+  });
   it('offers a neutral third briefing without diagnosis or a suggested intervention', () => {
     const entry = scenarioCatalog.find((scenario) => scenario.id === 'mercado-03');
     expect(entry).toMatchObject({ number: '003', challenge: 'Intermediário' });

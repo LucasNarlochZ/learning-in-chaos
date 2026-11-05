@@ -7,6 +7,7 @@ export interface ProcessDefinition {
   label?: string;
   stopMessage?: string;
   unresolvedMessage?: string;
+  progressLogPrefix?: string;
   worker?: { id: string; label: string };
   resolvesIncident?: boolean;
   guidedDefault?: boolean;

@@ -49,6 +49,7 @@ export const scenarioSchema = z
           label: z.string().min(1).optional(),
           stopMessage: z.string().min(1).optional(),
           unresolvedMessage: z.string().min(1).optional(),
+          progressLogPrefix: z.string().min(1).optional(),
           worker: z.object({ id: z.string().min(1), label: z.string().min(1) }).optional(),
           resolvesIncident: z.boolean().optional(),
           guidedDefault: z.boolean().optional(),

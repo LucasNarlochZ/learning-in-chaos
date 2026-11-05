@@ -974,11 +974,13 @@ export function advance(run: Run, seconds: number) {
           kind: slow ? 'WARN' : 'INFO',
           message: `GET /orders p95=${endpointLatency(run, 3)}ms plan=${run.system.regression ? 'SeqScan' : 'IndexScan'} rows_examined=${run.system.regression ? 240000 : 20} connection_tag=c-web-18`,
         });
-        run.logs.push({
-          at: run.record.elapsed,
-          kind: 'INFO',
-          message: `job_progress run_id=r17 connection_tag=c-r17 stage=historical_totals active=${databaseWork(run.processes) > 0} db_work_per_second=${databaseWork(run.processes)} idle_in_transaction=0 lock_wait_ms=0`,
-        });
+        for (const process of run.processes.filter((item) => item.definition.progressLogPrefix)) {
+          run.logs.push({
+            at: run.record.elapsed,
+            kind: 'INFO',
+            message: `${process.definition.progressLogPrefix} active=${process.running} db_work_per_second=${process.running ? process.definition.databaseWorkPerSecond : 0} idle_in_transaction=0 lock_wait_ms=0`,
+          });
+        }
       } else
         run.logs.push({
           at: run.record.elapsed,
