@@ -1,3 +1,5 @@
+import { getScenario, scenarioCatalog } from '../../scenarios/src';
+
 export type ActionId =
   | 'rollback'
   | 'optimize-query'
@@ -76,7 +78,7 @@ export const targetedActions: ActionId[] = [
 export function requiresActionTarget(mode: Difficulty, id: ActionId, scenarioId: string) {
   return (
     (mode === 'free' && targetedActions.includes(id)) ||
-    (scenarioId === 'mercado-03' && ['stop-import', 'create-index', 'optimize-query'].includes(id))
+    getScenario(scenarioId).actions.guidedTargeted.some((action) => action === id)
   );
 }
 
@@ -264,16 +266,18 @@ export const interventions: {
   },
 ];
 
-export function availableActions(mode: Difficulty, scenarioId = 'mercado-01') {
+export function availableActions(mode: Difficulty, scenarioId = scenarioCatalog[0].id) {
+  const settings = getScenario(scenarioId).actions;
   const actions = interventions.filter((action) => {
     if (mode === 'free') return action.id !== 'scale-db';
     return (
       action.guided &&
       (!['stop-import', 'terminate-session'].includes(action.id) ||
-        ['mercado-02', 'mercado-03'].includes(scenarioId))
+        settings.guidedExtra.some((id) => id === action.id))
     );
   });
-  if (mode === 'guided' && scenarioId !== 'mercado-03') return actions;
+  if (mode === 'guided' && settings.guidedTargeted.length === 0 && !settings.stopOperationTradeoff)
+    return actions;
   const names: Partial<Record<ActionId, { name: string; description: string; tradeoff: string }>> =
     {
       cache: {
@@ -317,13 +321,12 @@ export function availableActions(mode: Difficulty, scenarioId = 'mercado-01') {
     };
   return actions.map((action) => ({
     ...action,
-    ...(mode === 'free' || ['stop-import', 'create-index', 'optimize-query'].includes(action.id)
+    ...(mode === 'free' || settings.guidedTargeted.some((id) => id === action.id)
       ? names[action.id]
       : {}),
-    ...(scenarioId === 'mercado-03' && action.id === 'stop-import'
+    ...(settings.stopOperationTradeoff && action.id === 'stop-import'
       ? {
-          tradeoff:
-            'Interromper o checkout impede compras. Parar recibos exige entrega posterior. Suspender uma rotina agendada cancela sua execução e as próximas tentativas; o fechamento pendente exige reprocessamento.',
+          tradeoff: settings.stopOperationTradeoff,
         }
       : {}),
   }));

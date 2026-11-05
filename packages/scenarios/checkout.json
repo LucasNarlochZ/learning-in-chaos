@@ -1,6 +1,7 @@
 {
   "id": "mercado-01",
   "challenge": "Inicial",
+  "actions": { "guidedExtra": [], "guidedTargeted": [] },
   "version": "1.0.0",
   "title": "Uma tarde tranquila. Até agora.",
   "service": "Mercado / plataforma de comércio",

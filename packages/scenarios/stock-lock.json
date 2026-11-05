@@ -1,6 +1,7 @@
 {
   "id": "mercado-02",
   "challenge": "Intermediário",
+  "actions": { "guidedExtra": ["stop-import", "terminate-session"], "guidedTargeted": [] },
   "version": "2.0.0",
   "title": "O culpado da vez?",
   "service": "Mercado / plataforma de comércio",

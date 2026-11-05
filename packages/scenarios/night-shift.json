@@ -1,6 +1,11 @@
 {
   "id": "mercado-03",
   "challenge": "Intermediário",
+  "actions": {
+    "guidedExtra": ["stop-import", "terminate-session"],
+    "guidedTargeted": ["stop-import", "create-index", "optimize-query"],
+    "stopOperationTradeoff": "Interromper o checkout impede compras. Parar recibos exige entrega posterior. Suspender uma rotina agendada cancela sua execução e as próximas tentativas; o fechamento pendente exige reprocessamento."
+  },
   "version": "1.0.0",
   "title": "O fim do expediente",
   "service": "Mercado / plataforma de comércio",

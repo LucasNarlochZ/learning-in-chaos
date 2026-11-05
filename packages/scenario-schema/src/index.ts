@@ -16,6 +16,11 @@ export const scenarioSchema = z
     version: z.enum(['1.0.0', '2.0.0']),
     title: z.string().min(1),
     challenge: z.string().min(1),
+    actions: z.object({
+      guidedExtra: z.array(z.enum(['stop-import', 'terminate-session'])),
+      guidedTargeted: z.array(z.enum(['stop-import', 'create-index', 'optimize-query'])),
+      stopOperationTradeoff: z.string().min(1).optional(),
+    }),
     service: z.string().min(1),
     briefing: z.string().min(1),
     databaseCapacity: z.number().positive(),
