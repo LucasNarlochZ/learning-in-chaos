@@ -1,6 +1,6 @@
 # Learning in Chaos
 
-> **Playable implementation:** two incidents, including a difficult investigation with misleading evidence, guided/free modes, deterministic simulation, and postmortems. See [DEVELOPMENT.md](DEVELOPMENT.md) for setup, testing, and implementation limits. The product roadmap below describes later milestones as well.
+> **Playable implementation:** three incidents, guided/free modes, deterministic simulation, and postmortems. See [DEVELOPMENT.md](DEVELOPMENT.md) for setup, testing, and implementation limits. The product roadmap below describes later milestones as well.
 
 **Aprenda engenharia de software enfrentando o caos de sistemas reais.**
 
@@ -28,7 +28,9 @@ O jogo oferece diferentes níveis de dificuldade, ajustando a quantidade de comp
 
 O projeto inclui uma API própria em NestJS com armazenamento SQLite para registrar sessões e eventos de jogo. A coleta permite analisar cenários e dificuldades iniciados, partidas retomadas e encerradas, duração real e simulada, abas abertas, hipóteses, consultas e inspeções, instrumentação, intervenções, além de pausas, velocidades e avanços manuais do relógio. Eventos não carregados durante uma indisponibilidade ficam em fila local para envio posterior.
 
-Para iniciar a API, defina `ANALYTICS_ADMIN_PASSWORD` no ambiente e execute `npm run dev:analytics` em um terminal e `npm run dev` em outro. O painel fica em `http://127.0.0.1:3001/api/dashboard`; use o usuário `admin` e essa senha no prompt de autenticação do navegador. Para Docker Compose, crie `.env` na raiz com `ANALYTICS_ADMIN_PASSWORD=uma-senha-forte` (há um `.env.example` como modelo) e execute `docker compose up -d --build`. A API escuta em `http://127.0.0.1:3001/api`; defina `VITE_ANALYTICS_URL` para outro endereço e `ANALYTICS_CORS_ORIGIN` para os domínios permitidos em produção. O banco é criado em `apps/analytics/data/analytics.sqlite` (ou no caminho de `ANALYTICS_DATABASE`). A API oferece `POST /sessions`, `POST /sessions/:id/events`, `POST /sessions/:id/finish`, `GET /sessions` e consultas de sessão/eventos por ID. As rotas de leitura exigem Basic Auth; as rotas de ingestão permanecem acessíveis ao cliente do jogo.
+For local use, copy `.env.example` to `.env`, set a strong `ANALYTICS_ADMIN_PASSWORD`, and run `docker compose up -d --build`. Open `http://localhost:8088`; set `WEB_PORT` in `.env` to use a different host port. The admin dashboard is at `http://localhost:8088/api/dashboard` (username `admin`). Nginx proxies `/api/` to the internal analytics container; the API is not published on host port 3001. SQLite persists in the `analytics-data` volume. See [DEPLOYMENT.md](DEPLOYMENT.md) for production and [TECHNICAL.md](TECHNICAL.md#analytics-feedback-and-subscriptions) for API behavior.
+
+Postmortems include an optional email signup for project updates. The dashboard lists subscribers, but the project does not yet send update emails or provide an unsubscribe flow.
 
 ---
 

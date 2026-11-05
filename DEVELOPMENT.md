@@ -1,17 +1,25 @@
 # Running the initial MVP
 
-Learning in Chaos implements three complete, browser-local incidents with guided and free investigation modes. Incidents 002 and 003 are difficult investigations with separate evidence and intervention effects. The interface and scenario content are in Brazilian Portuguese. No account, API, database service, or secret is required.
+Learning in Chaos implements three complete, browser-local incidents with guided and free investigation modes. Incidents 002 and 003 are difficult investigations with separate evidence and intervention effects. The interface and scenario content are in Brazilian Portuguese. Gameplay requires no account; analytics, feedback, and email signup use the API.
 
 ## Quick start
 
-Use Node.js 24 and npm 11. Dependencies are locked in `package-lock.json`.
+For the complete local application, copy `.env.example` to `.env`, set `ANALYTICS_ADMIN_PASSWORD`, then run:
+
+```sh
+docker compose up -d --build
+```
+
+Open `http://localhost:8088`. Set `WEB_PORT` in `.env` if that port is occupied. The admin dashboard is at `/api/dashboard`; sign in as `admin` with the configured password. Nginx proxies `/api/` to the analytics container. SQLite persists in the `analytics-data` volume. See [DEPLOYMENT.md](DEPLOYMENT.md) for production.
+
+For frontend development and tests outside Compose, use Node.js 24 and npm 11. Dependencies are locked in `package-lock.json`.
 
 ```sh
 npm ci
 npm run dev
 ```
 
-Open the local URL printed by Vite, normally `http://127.0.0.1:5173`.
+Open the local URL printed by Vite, normally `http://127.0.0.1:5173`. The standalone frontend defaults to `http://127.0.0.1:3001/api`; use `VITE_ANALYTICS_URL` when the API is elsewhere. Without a reachable API, gameplay still works, but analytics, feedback, and signup do not.
 
 ```sh
 npm test
@@ -20,7 +28,7 @@ npm run build
 npm run preview
 ```
 
-The production build is written to `dist/`. Serve that directory with any static host. Vite's preview command is intended for checking the build locally.
+The production build is written to `dist/`. Vite's preview command is intended for checking the build locally; a static host also needs an API endpoint configured at build time for analytics, feedback, and signup.
 
 To run browser tests, install Chromium inside this project, then run the browser suite:
 
@@ -47,7 +55,7 @@ Each run has a maximum duration of 60 simulated minutes. Returning to the briefi
 
 ## Saved progress and replay
 
-The app stores one run in local storage under `learning-in-chaos.run.v1`. A record contains the engine version, scenario ID and version, unsigned 32-bit seed, difficulty, elapsed simulated seconds, and ordered decisions with their timestamps. Hypotheses are part of that record. Nothing is sent to a server.
+The app stores one run in local storage under `learning-in-chaos.run.v1`. A record contains the engine version, scenario ID and version, unsigned 32-bit seed, difficulty, elapsed simulated seconds, and ordered decisions with their timestamps. Older records may include hypothesis decisions. The full replay record remains local; separate analytics events may be sent to the API.
 
 Resume validates the record and reconstructs the run by replaying decisions. Session inspection, target PIDs, resource targets, and instrumentation enable/disable decisions are also recorded. Unsupported versions, malformed data, invalid ordering, or actions after a run has ended are rejected. Incident 002 now uses scenario version `2.0.0`; its previous `1.0.0` saves are rejected because the workload and causal model changed. The engine now uses version `2.0.0` because free-mode telemetry, action validation, and workload semantics changed. Saves from engine `1.0.0` require a new investigation, including incident 001. Scenario versions are separate from the engine version. If browser storage cannot be written, the current run continues in memory and the interface displays a warning. Clearing browser storage loses the save.
 
@@ -168,7 +176,7 @@ Waiting requests occupy pool connections without adding CPU work. Session detail
 
 These are educational approximations, not database benchmarks or an individual-request simulator. Cache warmup, replication lag, stale responses, networking, and real query execution are not simulated; their risks are explained in the toolkit and postmortem. Baseline events and pre-shift logs provide authored context; subsequent metrics and periodic logs derive from the model. Telemetry history keeps the latest 1800 seconds; charts show the latest 120 samples and the log view displays at most 200 matching entries. Runs are limited to 200 decisions.
 
-The implementation has no arbitrary architecture editor, executable user code, backend, authentication, hosted reports, sharing, analytics, or error-monitoring service. Those belong to later README milestones. Fonts are loaded from Google Fonts when available, with local font fallbacks. The simulation itself runs entirely in the browser.
+The implementation has no arbitrary architecture editor, executable user code, player accounts, hosted reports, sharing, or error-monitoring service. The analytics API supports feedback and update subscriptions, with Basic Auth for administrative reads; it does not store or validate game runs. Fonts are loaded from Google Fonts when available, with local font fallbacks. The simulation itself runs entirely in the browser.
 
 Query definitions and plan templates live with each endpoint in the scenario JSON and are validated by the scenario schema. The engine selects the current query variant from its state: rollback or query repair changes the catalog query after completion; cache and replica additions leave that query's plan unchanged. Plan costs and row estimates are authored teaching examples, not live PostgreSQL output or measured timings. The displayed work units come from the same endpoint work model used by the simulation. The reading guide follows PostgreSQL's [EXPLAIN documentation](https://www.postgresql.org/docs/current/using-explain.html): planner costs are relative units, and a node's row estimate describes its output.
 
