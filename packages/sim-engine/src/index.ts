@@ -769,32 +769,21 @@ function complete(run: Run) {
     (id === 'rollback' || (id === 'optimize-query' && (!targeted || target === 'catalog-list')))
   )
     run.system.regression = false;
-  if (
-    id === 'stop-import' &&
-    scenario.incident.kind === 'row-lock' &&
-    (!targeted || target === 'inventory-sync')
-  ) {
-    run.system.regression = false;
-    const process = run.processes.find(
-      (item) => item.definition.guidedDefault && (!targeted || item.definition.id === target),
+  if (id === 'stop-import') {
+    const process = run.processes.find((item) =>
+      target ? item.definition.id === target : item.definition.guidedDefault,
     );
-    if (process) stopProcess(run.processes, process.definition.id);
-    run.events.push({
-      at: run.record.elapsed,
-      kind: 'alert',
-      message: 'Lote da importação desfeito; reprocessamento necessário.',
-    });
-  }
-  if (id === 'stop-import' && target) {
-    stopProcess(run.processes, target);
-    run.system.stoppedOperations.push(target);
-    if (target === 'orders-reconciliation')
-      run.events.push({
-        at: run.record.elapsed,
-        kind: 'alert',
-        message:
-          'Execução r17 e próximas tentativas suspensas; fechamento diário pendente de reprocessamento.',
-      });
+    if (process) {
+      stopProcess(run.processes, process.definition.id);
+      if (process.definition.resolvesIncident) run.system.regression = false;
+      if (process.definition.stopMessage)
+        run.events.push({
+          at: run.record.elapsed,
+          kind: 'alert',
+          message: process.definition.stopMessage,
+        });
+    }
+    if (target) run.system.stoppedOperations.push(target);
   }
   if (id === 'resume-operation') {
     if (

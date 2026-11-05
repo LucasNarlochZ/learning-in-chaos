@@ -18,6 +18,7 @@
   "processes": [
     {
       "id": "inventory-sync",
+      "stopMessage": "Lote da importação desfeito; reprocessamento necessário.",
       "worker": { "id": "inventory-worker", "label": "Worker · inventory-sync" },
       "label": "inventory-sync · execução 6f2",
       "pid": 731,

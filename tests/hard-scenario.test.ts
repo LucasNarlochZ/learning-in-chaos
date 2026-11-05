@@ -63,6 +63,22 @@ describe('second incident: misleading correlations and row locks', () => {
       process.worker = original;
     }
   });
+
+  it('resolves a blocking process without depending on its operation ID', () => {
+    const scenario = getScenario('mercado-02');
+    const process = scenario.processes![0];
+    const original = process.id;
+    process.id = 'custom-import';
+    try {
+      const run = createRun(42, 'free', scenario.id);
+      intervene(run, 'stop-import', undefined, 'custom-import');
+      advance(run, 120);
+      expect(run.system.regression).toBe(false);
+      expect(observe(run).checkoutBreakdown.every((segment) => segment.errorRate === 0)).toBe(true);
+    } finally {
+      process.id = original;
+    }
+  });
   it('shows healthy indexed queries and low database usage despite checkout failures', () => {
     const run = hard();
     const view = observe(run);
