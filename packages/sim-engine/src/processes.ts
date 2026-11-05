@@ -6,6 +6,7 @@ export interface ProcessDefinition {
   retryAfterSeconds?: number;
   label?: string;
   stopMessage?: string;
+  unresolvedMessage?: string;
   worker?: { id: string; label: string };
   resolvesIncident?: boolean;
   guidedDefault?: boolean;

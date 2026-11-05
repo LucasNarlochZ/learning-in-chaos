@@ -23,6 +23,7 @@
     {
       "id": "orders-reconciliation",
       "stopMessage": "Execução r17 e próximas tentativas suspensas; fechamento diário pendente de reprocessamento.",
+      "unresolvedMessage": "A reconciliação histórica continua consumindo capacidade do primário; reprogramar ou isolar essa rotina após o incidente.",
       "worker": { "id": "reconciliation-worker", "label": "Worker · orders-reconciliation" },
       "label": "orders-reconciliation · execução r17",
       "pid": 610,

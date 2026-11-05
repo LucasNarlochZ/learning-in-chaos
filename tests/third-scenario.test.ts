@@ -45,6 +45,23 @@ describe('third difficult incident', () => {
       false,
     );
   });
+
+  it('tracks unresolved scheduled work without relying on its operation ID', () => {
+    const process = getScenario('mercado-03').processes![0];
+    const original = process.id;
+    process.id = 'different-scheduled-job';
+    try {
+      const run = third();
+      intervene(run, 'optimize-query', undefined, 'customer-orders');
+      advance(run, 240);
+      intervene(run, 'stop-import', undefined, process.id);
+      advance(run, 120);
+      expect(report(run).repaired).toBe(true);
+      expect(report(run).remainingIssues).toEqual([]);
+    } finally {
+      process.id = original;
+    }
+  });
   it('offers a neutral third briefing without diagnosis or a suggested intervention', () => {
     const entry = scenarioCatalog.find((scenario) => scenario.id === 'mercado-03');
     expect(entry).toMatchObject({ number: '003', challenge: 'Intermediário' });

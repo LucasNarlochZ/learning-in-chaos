@@ -1344,11 +1344,11 @@ export function report(run: Run) {
                   'A consulta de pedidos ainda percorre linhas desnecessárias; a mitigação não corrigiu seu acesso aos dados.',
                 ]
               : []),
-            ...(!run.system.stoppedOperations.includes('orders-reconciliation')
-              ? [
-                  'A reconciliação histórica continua consumindo capacidade do primário; reprogramar ou isolar essa rotina após o incidente.',
-                ]
-              : []),
+            ...run.processes.flatMap((process) =>
+              process.definition.unresolvedMessage && !process.stopped
+                ? [process.definition.unresolvedMessage]
+                : [],
+            ),
           ]
         : run.system.checkoutRegression
           ? [
@@ -1357,8 +1357,7 @@ export function report(run: Run) {
           : [],
     repaired:
       !run.system.regression &&
-      (scenario.incident.kind !== 'workload-contention' ||
-        run.system.stoppedOperations.includes('orders-reconciliation')),
+      run.processes.every((process) => !process.definition.unresolvedMessage || process.stopped),
     hourlyCost: run.metrics.hourlyCost,
     risks: run.record.decisions.flatMap((decision) => {
       if (decision.kind !== 'action') return [];
