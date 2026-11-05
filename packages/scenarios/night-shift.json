@@ -36,6 +36,26 @@
         "waitEvent": "IO: DataFileRead",
         "query": "SELECT date_trunc('day', created_at), sum(total) FROM orders GROUP BY 1;"
       }
+    },
+    {
+      "id": "customer-read",
+      "pid": 818,
+      "databaseWorkPerSecond": 0,
+      "locks": [],
+      "operation": false,
+      "reusePid": true,
+      "retryAfterSeconds": 30,
+      "interruptedReadSeconds": 30,
+      "queryEndpoint": "GET /orders",
+      "session": {
+        "application": "mercado-worker",
+        "user": "mercado_app",
+        "connectionTag": "c-web-18",
+        "state": "active",
+        "transactionAge": 0,
+        "waitEvent": "IO: DataFileRead",
+        "query": ""
+      }
     }
   ],
   "incident": {

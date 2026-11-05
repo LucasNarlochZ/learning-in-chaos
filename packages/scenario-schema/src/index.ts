@@ -49,6 +49,10 @@ export const scenarioSchema = z
           label: z.string().min(1).optional(),
           resolvesIncident: z.boolean().optional(),
           guidedDefault: z.boolean().optional(),
+          operation: z.boolean().optional(),
+          reusePid: z.boolean().optional(),
+          interruptedReadSeconds: z.number().int().positive().optional(),
+          queryEndpoint: z.string().min(1).optional(),
           session: z
             .object({
               application: z.string(),

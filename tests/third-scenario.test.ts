@@ -32,6 +32,19 @@ describe('third difficult incident', () => {
       run.logs.find((entry) => entry.message.includes('job_progress') && entry.at === 10)?.message,
     ).toContain('active=true db_work_per_second=820');
   });
+
+  it('defines the customer read session as a process', () => {
+    const process = getScenario('mercado-03').processes?.find((item) => item.pid === 818);
+    expect(process).toMatchObject({ id: 'customer-read', retryAfterSeconds: 30 });
+    const run = third();
+    inspectSessions(run);
+    expect(observe(run).databaseSessions!.filter((session) => session.pid === 818)).toHaveLength(1);
+    intervene(run, 'terminate-session', 818);
+    advance(run, 30);
+    expect(run.processes.find((item) => item.definition.id === 'customer-read')?.running).toBe(
+      false,
+    );
+  });
   it('offers a neutral third briefing without diagnosis or a suggested intervention', () => {
     const entry = scenarioCatalog.find((scenario) => scenario.id === 'mercado-03');
     expect(entry).toMatchObject({ number: '003', challenge: 'Intermediário' });

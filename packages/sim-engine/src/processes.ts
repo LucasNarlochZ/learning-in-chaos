@@ -7,6 +7,10 @@ export interface ProcessDefinition {
   label?: string;
   resolvesIncident?: boolean;
   guidedDefault?: boolean;
+  operation?: boolean;
+  reusePid?: boolean;
+  interruptedReadSeconds?: number;
+  queryEndpoint?: string;
   session?: {
     application: string;
     user: string;
@@ -55,10 +59,12 @@ export function conflictingProcesses(processes: SimulatedProcess[], table: strin
   );
 }
 
+export function processPid(process: SimulatedProcess) {
+  return process.definition.pid + (process.definition.reusePid ? 0 : process.attempts);
+}
+
 export function terminateProcess(processes: SimulatedProcess[], pid: number, at: number) {
-  const process = processes.find(
-    (item) => item.running && item.definition.pid + item.attempts === pid,
-  );
+  const process = processes.find((item) => item.running && processPid(item) === pid);
   if (!process) return false;
   process.running = false;
   process.retryAt =

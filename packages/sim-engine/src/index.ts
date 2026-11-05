@@ -7,6 +7,7 @@ import {
   conflictingProcesses,
   stopProcess,
   resumeProcess,
+  processPid,
   type SimulatedProcess,
 } from './processes';
 import { getScenario, scenarioCatalog } from '../../scenarios/src';
@@ -249,10 +250,12 @@ export function actionTargets(run: Run) {
       : []),
   ];
   const operations = [
-    ...(scenario.processes ?? []).map((process) => ({
-      id: process.id,
-      label: process.label ?? process.id,
-    })),
+    ...(scenario.processes ?? [])
+      .filter((process) => process.operation !== false)
+      .map((process) => ({
+        id: process.id,
+        label: process.label ?? process.id,
+      })),
     { id: 'checkout-processing', label: 'checkout-processing · processamento de compras' },
     { id: 'receipt-delivery', label: 'receipt-delivery · entrega de recibos' },
   ];
@@ -722,12 +725,21 @@ function complete(run: Run) {
   if (id === 'rollback') run.system.checkoutRegression = false;
   if (id === 'terminate-session') {
     const pid = run.pending!.targetPid!;
-    const process = run.processes.find(
-      (item) => item.running && item.definition.pid + item.attempts === pid,
-    );
+    const process = run.processes.find((item) => item.running && processPid(item) === pid);
     const processTerminated = terminateProcess(run.processes, pid, run.record.elapsed);
     if (processTerminated) {
       if (process?.definition.resolvesIncident) run.system.regression = false;
+      if (process?.definition.interruptedReadSeconds) {
+        run.system.interruptedReadUntil =
+          run.record.elapsed + process.definition.interruptedReadSeconds;
+        run.failedRequests++;
+        run.totalRequests++;
+        run.events.push({
+          at: run.record.elapsed,
+          kind: 'alert',
+          message: `Consulta de pedidos interrompida; falhas de leitura durante ${process.definition.interruptedReadSeconds}s de reconexão.`,
+        });
+      }
       run.events.push({
         at: run.record.elapsed,
         kind: 'alert',
@@ -739,15 +751,6 @@ function complete(run: Run) {
           kind: 'job',
           message: `${process.definition.label ?? process.definition.id}: agendador programou nova tentativa em ${process.definition.retryAfterSeconds}s.`,
         });
-    } else if (scenario.incident.kind === 'workload-contention' && pid === 818) {
-      run.system.interruptedReadUntil = run.record.elapsed + 30;
-      run.failedRequests++;
-      run.totalRequests++;
-      run.events.push({
-        at: run.record.elapsed,
-        kind: 'alert',
-        message: 'Consulta de pedidos interrompida; falhas de leitura durante 30s de reconexão.',
-      });
     } else {
       run.abortedCheckouts++;
       run.failedRequests++;
@@ -763,7 +766,7 @@ function complete(run: Run) {
     run.logs.push({
       at: run.record.elapsed,
       kind: 'WARN',
-      message: `db_session pid=${pid} terminated rollback=true${processTerminated ? ' checkout_aborted=false' : pid === 731 ? ' connection_tag=c-6f2' : scenario.incident.kind === 'workload-contention' && pid === 818 ? ' checkout_aborted=false' : ' checkout_aborted=true reconnect_window=30s'}`,
+      message: `db_session pid=${pid} terminated rollback=true${processTerminated ? ' checkout_aborted=false' : ' checkout_aborted=true reconnect_window=30s'}`,
     });
   }
   if (
@@ -1068,7 +1071,7 @@ function sessionDetails(run: Run): DatabaseSession[] {
     ...run.processes
       .filter((process) => process.running)
       .map((process) => ({
-        pid: process.definition.pid + process.attempts,
+        pid: processPid(process),
         application: process.definition.session?.application ?? process.definition.id,
         user: process.definition.session?.user ?? 'simulated',
         connectionTag: process.definition.session?.connectionTag ?? process.definition.id,
@@ -1079,27 +1082,17 @@ function sessionDetails(run: Run): DatabaseSession[] {
           process.startedAt,
         waitEvent: process.definition.session?.waitEvent ?? 'CPU',
         blockedBy: null,
-        query: process.definition.session?.query ?? '',
+        query: process.definition.queryEndpoint
+          ? (() => {
+              const query = scenario.endpoints.find(
+                (endpoint) => endpoint.path === process.definition.queryEndpoint,
+              )?.queries[0];
+              return query
+                ? (run.system.regression ? (query.incident ?? query.normal) : query.normal).sql
+                : '';
+            })()
+          : (process.definition.session?.query ?? ''),
       })),
-    ...(scenario.incident.kind === 'workload-contention' &&
-    endpointRestartShare(run, 3) < 1 &&
-    run.record.elapsed >= run.system.interruptedReadUntil
-      ? [
-          {
-            ...common,
-            pid: 818,
-            connectionTag: 'c-web-18',
-            state: 'active',
-            transactionAge: Math.ceil(endpointLatency(run, 3) / 1000),
-            waitEvent: 'IO: DataFileRead',
-            blockedBy: null,
-            query: (run.system.regression
-              ? scenario.endpoints[3].queries[0].incident!
-              : scenario.endpoints[3].queries[0].normal
-            ).sql,
-          },
-        ]
-      : []),
     ...(endpointRestartShare(run, 2) === 1 ||
     run.system.stoppedOperations.includes('checkout-processing')
       ? []
