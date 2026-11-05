@@ -96,9 +96,9 @@ Scenario JSON may include a `processes` array. Each entry starts running and con
 }
 ```
 
-IDs and PIDs must be unique among configured processes. Inspecting database sessions exposes running processes; terminating one removes its work and locks, and schedules a retry when `retryAfterSeconds` is present. Stopping the corresponding operation cancels retries; resuming it starts the process again. Decisions are replayed using the scenario definition.
+IDs and initial PIDs must be unique among configured processes. Inspecting database sessions exposes running processes; terminating one removes its work and locks, and schedules a retry when `retryAfterSeconds` is present. A retry normally receives the next PID; `reusePid` retains it. Stopping the corresponding operation cancels retries; resuming it starts the process again. A `worker` defines a restart target, and `operation: false` excludes a process from operation controls. Decisions are replayed using the scenario definition.
 
-Checkout segments can declare `"lockResource": { "table": "inventory", "rowKey": "sku-123" }`. A matching running process's exclusive lock makes that segment wait and fail; unrelated rows are unaffected. This is an aggregate checkout model, not a general SQL lock manager. Other endpoints do not yet declare row accesses, and the existing incidents still contain separate, hard-coded session and workload behavior. Avoid PIDs and operation IDs already used by those existing mechanics when defining additional processes.
+Checkout segments can declare `"lockResource": { "table": "inventory", "rowKey": "sku-123" }`. A matching running process's exclusive lock makes that segment wait and fail; unrelated rows are unaffected. The stock import, reconciliation job, and customer-read session in the existing incidents use process definitions. This is an aggregate checkout model, not a general SQL lock manager: other endpoints do not yet declare row accesses, and some checkout sessions and incident-specific query behavior remain hard-coded. Avoid PIDs and operation IDs already used by those existing mechanics when defining additional processes.
 
 ## Where to work
 
