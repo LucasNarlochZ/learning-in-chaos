@@ -29,6 +29,9 @@ it('labels immediate, follow-up and final measurements separately after restorin
   render(<App client={client} />);
   await userEvent.click(screen.getByRole('button', { name: /Retomar investigação salva/ }));
   await userEvent.click(await screen.findByRole('button', { name: /Ler postmortem/ }));
+  expect(
+    screen.getByRole('heading', { name: 'Gostou de investigar esse incidente?' }),
+  ).toBeTruthy();
   const final = screen.getByRole('region', { name: 'Estado final do serviço' });
   expect(final.textContent).toContain('60s consecutivos');
   const action = screen.getByRole('article', { name: /Análise de Criar índice · customer-orders/ });

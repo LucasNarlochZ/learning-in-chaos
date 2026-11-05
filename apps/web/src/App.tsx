@@ -19,6 +19,7 @@ import { getScenario, scenarioCatalog } from '../../../packages/scenarios/src';
 import type { Client, Command, Snapshot } from './session';
 import { createAnalyticsSession, type AnalyticsClient } from './analytics';
 import { FeedbackForm } from './FeedbackForm';
+import { SubscriptionForm } from './SubscriptionForm';
 
 const STORAGE_KEY = 'learning-in-chaos.run.v1';
 const tabs = [
@@ -1081,6 +1082,7 @@ export function App({ client: providedClient }: { client?: Client }) {
                   </div>
                   <Timeline entries={snapshot.report.timeline} />
                 </section>
+                <SubscriptionForm />
                 <button
                   className="primary"
                   onClick={() => {
