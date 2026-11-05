@@ -47,6 +47,22 @@ describe('second incident: misleading correlations and row locks', () => {
     expect(run.system.regression).toBe(true);
     expect(report(run).repaired).toBe(false);
   });
+
+  it('derives the worker restart target from process configuration', () => {
+    const scenario = getScenario('mercado-02');
+    const process = scenario.processes![0];
+    const original = process.worker;
+    process.worker = { id: 'custom-worker', label: 'Custom worker' };
+    try {
+      const run = createRun(42, 'free', scenario.id);
+      expect(observe(run).actionTargets.restart).toContainEqual({
+        id: 'custom-worker',
+        label: 'Custom worker',
+      });
+    } finally {
+      process.worker = original;
+    }
+  });
   it('shows healthy indexed queries and low database usage despite checkout failures', () => {
     const run = hard();
     const view = observe(run);

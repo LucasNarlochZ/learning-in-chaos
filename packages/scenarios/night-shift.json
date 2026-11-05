@@ -22,6 +22,7 @@
   "processes": [
     {
       "id": "orders-reconciliation",
+      "worker": { "id": "reconciliation-worker", "label": "Worker · orders-reconciliation" },
       "label": "orders-reconciliation · execução r17",
       "pid": 610,
       "databaseWorkPerSecond": 820,

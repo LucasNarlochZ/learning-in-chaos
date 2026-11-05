@@ -242,12 +242,7 @@ export function actionTargets(run: Run) {
     ...(run.system.cache || run.system.caches.length
       ? [{ id: 'cache', label: 'Cache · nó de memória' }]
       : []),
-    ...(scenario.incident.kind === 'row-lock'
-      ? [{ id: 'inventory-worker', label: 'Worker · inventory-sync' }]
-      : []),
-    ...(scenario.incident.kind === 'workload-contention'
-      ? [{ id: 'reconciliation-worker', label: 'Worker · orders-reconciliation' }]
-      : []),
+    ...(scenario.processes ?? []).flatMap((process) => (process.worker ? [process.worker] : [])),
   ];
   const operations = [
     ...(scenario.processes ?? [])
@@ -814,7 +809,14 @@ function complete(run: Run) {
       (operation) => operation !== target,
     );
   }
-  if (id === 'restart' && (target === 'database' || target === 'inventory-worker')) {
+  if (
+    id === 'restart' &&
+    (target === 'database' ||
+      run.processes.some(
+        (process) =>
+          process.definition.worker?.id === target && process.definition.resolvesIncident,
+      ))
+  ) {
     if (scenario.incident.kind === 'row-lock') {
       run.system.regression = false;
       for (const process of run.processes.filter((item) => item.definition.resolvesIncident))
