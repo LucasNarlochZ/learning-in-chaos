@@ -33,6 +33,31 @@ it('shows earlier traffic when the wider dashboard time window is selected', asy
   expect(screen.getByText(/campaign=black_friday/)).toBeTruthy();
 });
 
+it('aggregates dense live samples in the one-hour traffic graph after advancing', async () => {
+  const session = new EngineSession();
+  render(
+    <App
+      client={{
+        async dispatch(command) {
+          return session.execute(command);
+        },
+        terminate() {},
+      }}
+    />,
+  );
+  await userEvent.click(screen.getByRole('radio', { name: /Incidente 004/ }));
+  await userEvent.click(screen.getByRole('button', { name: /Entrar na sala do incidente/ }));
+  await userEvent.click(await screen.findByRole('button', { name: 'Pausar simulação' }));
+  await userEvent.click(screen.getByRole('button', { name: 'Última hora' }));
+  await userEvent.click(screen.getByRole('button', { name: '+30s' }));
+  const chart = screen.getByRole('img', { name: /Tráfego de requisições ao longo/ });
+  const points = chart.querySelector('polyline')!.getAttribute('points')!.trim().split(/\s+/);
+  expect(points.length).toBeLessThan(20);
+  expect(session.execute({ type: 'tick', seconds: 0 }).observation.history.length).toBeGreaterThan(
+    30,
+  );
+});
+
 it('offers filters for challenge labels defined by scenarios', async () => {
   const original = scenarioCatalog[0].challenge;
   scenarioCatalog[0].challenge = 'Especial';

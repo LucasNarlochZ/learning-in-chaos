@@ -89,21 +89,36 @@ function Chart({
   color,
   label,
   threshold,
+  windowSeconds,
 }: {
   history: Observation['history'];
   metric: 'latency' | 'errors' | 'database' | 'rps';
   color: string;
   label: string;
   threshold?: number;
+  windowSeconds: number;
 }) {
-  const values = history;
-  const max = Math.max(threshold ?? 0, ...values.map((p) => p[metric]), 1) * 1.18;
+  const bucketSeconds = Math.max(1, Math.ceil(windowSeconds / 120));
+  const buckets = new Map<number, { at: number; value: number; count: number }>();
+  for (const point of history) {
+    const key = Math.floor(point.at / bucketSeconds);
+    const bucket = buckets.get(key) ?? { at: 0, value: 0, count: 0 };
+    bucket.at += point.at;
+    bucket.value += point[metric];
+    bucket.count++;
+    buckets.set(key, bucket);
+  }
+  const values = [...buckets.values()].map((bucket) => ({
+    at: bucket.at / bucket.count,
+    value: bucket.value / bucket.count,
+  }));
+  const max = Math.max(threshold ?? 0, ...values.map((p) => p.value), 1) * 1.18;
   const y = (v: number) => 108 - (v / max) * 94;
   const points = values.map(
     (point) =>
-      `${((point.at - values[0].at) / Math.max(1, values[values.length - 1].at - values[0].at)) * 480},${y(point[metric])}`,
+      `${((point.at - history[0].at) / Math.max(1, history[history.length - 1].at - history[0].at)) * 480},${y(point.value)}`,
   );
-  if (points.length === 1) points.push(`480,${y(values[0][metric])}`);
+  if (points.length === 1) points.push(`480,${y(values[0].value)}`);
   return (
     <svg
       className="chart"
@@ -1153,6 +1168,7 @@ export function App({ client: providedClient }: { client?: Client }) {
                       >
                         Última hora
                       </button>
+                      {chartWindow === 3600 && <span>Média por intervalo de 30s</span>}
                     </div>
                     <div className="chart-grid">
                       <section className="panel chart-panel">
@@ -1179,6 +1195,7 @@ export function App({ client: providedClient }: { client?: Client }) {
                         </div>
                         <Chart
                           history={chartHistory}
+                          windowSeconds={chartWindow}
                           metric="rps"
                           color="#3DD6C6"
                           label="Tráfego de requisições ao longo do tempo simulado"
@@ -1203,6 +1220,7 @@ export function App({ client: providedClient }: { client?: Client }) {
                         </div>
                         <Chart
                           history={chartHistory}
+                          windowSeconds={chartWindow}
                           metric="latency"
                           color="#FFB020"
                           label="Latência p95 ao longo do tempo simulado"
@@ -1239,6 +1257,7 @@ export function App({ client: providedClient }: { client?: Client }) {
                         </div>
                         <Chart
                           history={chartHistory}
+                          windowSeconds={chartWindow}
                           metric="database"
                           color="#3DD6C6"
                           label="Utilização do banco ao longo do tempo simulado"
