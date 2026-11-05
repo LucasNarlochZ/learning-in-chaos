@@ -4,7 +4,7 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - '80:80'
+      - '${WEB_PORT:-8088}:80'
     depends_on:
       - analytics
     restart: unless-stopped
