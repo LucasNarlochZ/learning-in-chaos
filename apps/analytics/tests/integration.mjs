@@ -53,6 +53,25 @@ try {
   assert.equal(dashboard.status, 200);
   assert.match(await dashboard.text(), /Partidas e atividade/);
 
+  assert.equal((await fetch(`${base}/subscribers`)).status, 401);
+  const subscribe = (email) =>
+    fetch(`${base}/subscribers`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+  assert.equal((await subscribe('not-an-email')).status, 400);
+  assert.equal((await subscribe(' Reader@Example.com ')).status, 201);
+  assert.equal((await subscribe('reader@example.com')).status, 201);
+  const subscribers = await (
+    await fetch(`${base}/subscribers`, {
+      headers: { authorization: authHeader },
+    })
+  ).json();
+  assert.equal(subscribers.length, 1);
+  assert.equal(subscribers[0].email, 'reader@example.com');
+  assert.ok(subscribers[0].createdAt);
+
   const created = await fetch(`${base}/sessions`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },

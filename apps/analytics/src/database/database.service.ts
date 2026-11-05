@@ -51,6 +51,10 @@ export class DatabaseService implements OnModuleDestroy {
         created_at TEXT NOT NULL
       );
       CREATE INDEX IF NOT EXISTS feedback_created_at ON feedback(created_at);
+      CREATE TABLE IF NOT EXISTS subscribers (
+        email TEXT PRIMARY KEY,
+        created_at TEXT NOT NULL
+      );
     `);
   }
 
