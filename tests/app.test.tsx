@@ -11,7 +11,7 @@ afterEach(cleanup);
 
 it('offers filters for challenge labels defined by scenarios', async () => {
   const original = scenarioCatalog[0].challenge;
-  scenarioCatalog[0].challenge = 'Avançado';
+  scenarioCatalog[0].challenge = 'Especial';
   try {
     const session = new EngineSession();
     render(
@@ -24,7 +24,7 @@ it('offers filters for challenge labels defined by scenarios', async () => {
         }}
       />,
     );
-    await userEvent.click(screen.getByRole('button', { name: 'Avançado' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Especial' }));
     expect(screen.getAllByRole('radio', { name: /Incidente 00/ })).toHaveLength(1);
   } finally {
     scenarioCatalog[0].challenge = original;
@@ -65,7 +65,7 @@ it('filters incident cards by difficulty and starts the selected incident', asyn
     terminate() {},
   };
   render(<App client={client} />);
-  expect(screen.getAllByRole('radio', { name: /Incidente 00/ })).toHaveLength(3);
+  expect(screen.getAllByRole('radio', { name: /Incidente 00/ })).toHaveLength(4);
   await userEvent.click(screen.getByRole('button', { name: 'Intermediário' }));
   expect(screen.getAllByRole('radio', { name: /Incidente 00/ })).toHaveLength(2);
   expect(screen.queryByRole('radio', { name: /Incidente 001/ })).toBeNull();

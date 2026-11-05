@@ -289,9 +289,8 @@ export function availableActions(mode: Difficulty, scenarioId = scenarioCatalog[
   const actions = interventions.filter((action) => {
     if (mode === 'free') return action.id !== 'scale-db';
     return (
-      action.guided &&
-      (!['stop-import', 'terminate-session'].includes(action.id) ||
-        settings.guidedExtra.some((id) => id === action.id))
+      (action.guided && !['stop-import', 'terminate-session'].includes(action.id)) ||
+      settings.guidedExtra.some((id) => id === action.id)
     );
   });
   if (mode === 'guided' && settings.guidedTargeted.length === 0 && !settings.stopOperationTradeoff)

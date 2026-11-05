@@ -352,6 +352,11 @@ function endpointWork(run: Run, index: number) {
 function endpointLatency(run: Run, index: number, affectedProduct = true, processLocked = false) {
   const scenario = getScenario(run.record.scenarioId);
   if (endpointRestartShare(run, index) >= 0.05) return 5000 + overhead(run).latency;
+  if (
+    scenario.incident.kind === 'api-overload' &&
+    scenario.baselineRps > scenario.apiCapacity * run.system.apiInstances
+  )
+    return 1800 + overhead(run).latency;
   const endpoint = scenario.endpoints[index];
   const checkoutDelay =
     (index === 2 && run.system.checkoutRegression ? scenario.incident.checkoutDelayMs : 0) +
@@ -418,8 +423,12 @@ function measure(run: Run, tick: boolean): Metrics {
   const capacity = scenario.databaseCapacity * (system.databaseScaled ? 2 : 1);
   const replicaCapacity = scenario.databaseCapacity * (system.replicaScaled ? 2 : 1);
   const down = restartShare(run);
+  const apiRejection =
+    scenario.incident.kind === 'api-overload'
+      ? Math.max(0, 1 - (scenario.apiCapacity * system.apiInstances) / rps)
+      : 0;
   const demand =
-    rps * work * (1 - down) +
+    rps * work * (1 - down) * (1 - apiRejection) +
     overhead(run).databaseWork +
     system.indexes.length * 15 +
     backgroundWork(run) +
@@ -498,7 +507,10 @@ function measure(run: Run, tick: boolean): Metrics {
     errorRate:
       down === 1
         ? 100
-        : Math.min(100, Math.max(operationErrors, (discarded / Math.max(1, demand)) * 100)),
+        : Math.min(
+            100,
+            Math.max(operationErrors, apiRejection * 100, (discarded / Math.max(1, demand)) * 100),
+          ),
     apiUtilization:
       down === 1 ? 0 : Math.min(100, (rps / (scenario.apiCapacity * system.apiInstances)) * 100),
     databaseUtilization: Math.min(
@@ -563,7 +575,7 @@ export function createRun(
       replica: false,
       apiInstances: 1,
       pool: 40,
-      queue: scenario.incident.kind === 'row-lock' ? 0 : 2600,
+      queue: ['row-lock', 'api-overload'].includes(scenario.incident.kind) ? 0 : 2600,
       replicaQueue: 0,
       databaseScaled: false,
       catalogIndex: false,
@@ -990,6 +1002,12 @@ export function advance(run: Run, seconds: number) {
             message: `${process.definition.progressLogPrefix} active=${process.running} db_work_per_second=${process.running ? process.definition.databaseWorkPerSecond : 0} idle_in_transaction=0 lock_wait_ms=0`,
           });
         }
+      } else if (getScenario(run.record.scenarioId).incident.kind === 'api-overload') {
+        run.logs.push({
+          at: run.record.elapsed,
+          kind: slow ? 'WARN' : 'INFO',
+          message: `api requests_per_second=${run.metrics.rps} utilization=${run.metrics.apiUtilization.toFixed(0)}% rejected=${run.metrics.errorRate.toFixed(1)}%`,
+        });
       } else
         run.logs.push({
           at: run.record.elapsed,
@@ -1000,7 +1018,10 @@ export function advance(run: Run, seconds: number) {
         run.logs.push({
           at: run.record.elapsed,
           kind: 'ERROR',
-          message: `POST /checkout upstream_timeout errors=${run.metrics.errorRate.toFixed(1)}% pool=${run.metrics.connections}/${run.system.pool}`,
+          message:
+            getScenario(run.record.scenarioId).incident.kind === 'api-overload'
+              ? `POST /checkout status=503 errors=${run.metrics.errorRate.toFixed(1)}%`
+              : `POST /checkout upstream_timeout errors=${run.metrics.errorRate.toFixed(1)}% pool=${run.metrics.connections}/${run.system.pool}`,
         });
     }
     run.stableSeconds =
@@ -1361,11 +1382,13 @@ export function report(run: Run) {
                 : [],
             ),
           ]
-        : run.system.checkoutRegression
-          ? [
-              'A consulta de preços da v2.15.0 ainda acrescenta 180 ms ao checkout. O serviço pode cumprir as metas, mas essa regressão menor deve ser corrigida.',
-            ]
-          : [],
+        : scenario.incident.kind === 'api-overload' && run.system.regression
+          ? ['A demanda elevada continua; planeje capacidade para eventos futuros.']
+          : run.system.checkoutRegression
+            ? [
+                'A consulta de preços da v2.15.0 ainda acrescenta 180 ms ao checkout. O serviço pode cumprir as metas, mas essa regressão menor deve ser corrigida.',
+              ]
+            : [],
     repaired:
       !run.system.regression &&
       run.processes.every((process) => !process.definition.unresolvedMessage || process.stopped),

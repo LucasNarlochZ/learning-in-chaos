@@ -23,7 +23,7 @@ export const scenarioSchema = z
       unrepairedLabel: z.string().min(1),
     }),
     actions: z.object({
-      guidedExtra: z.array(z.enum(['stop-import', 'terminate-session'])),
+      guidedExtra: z.array(z.enum(['stop-import', 'terminate-session', 'scale-api'])),
       guidedTargeted: z.array(z.enum(['stop-import', 'create-index', 'optimize-query'])),
       stopOperationTradeoff: z.string().min(1).optional(),
     }),
@@ -74,7 +74,7 @@ export const scenarioSchema = z
       .optional(),
     incident: z.object({
       kind: z
-        .enum(['query-regression', 'row-lock', 'workload-contention'])
+        .enum(['query-regression', 'row-lock', 'workload-contention', 'api-overload'])
         .default('query-regression'),
       productWork: z.number().positive(),
       queryEndpoint: z.string().optional(),

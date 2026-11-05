@@ -1,0 +1,109 @@
+{
+  "id": "mercado-04",
+  "version": "1.0.0",
+  "challenge": "Avançado",
+  "title": "Uma manhã movimentada",
+  "service": "Mercado / plataforma de comércio",
+  "briefing": "Clientes relatam falhas intermitentes e lentidão em várias telas do Mercado. O plantão recebeu um alerta enquanto o serviço continuava parcialmente disponível. Investigue as evidências e recupere o serviço.",
+  "presentation": {
+    "showDatabaseSessionsInGuided": true,
+    "showCheckoutDimensionGap": false,
+    "repairedLabel": "Causa removida",
+    "unrepairedLabel": "Causa ainda presente"
+  },
+  "actions": { "guidedExtra": ["scale-api"], "guidedTargeted": [] },
+  "databaseCapacity": 3000,
+  "apiCapacity": 500,
+  "baselineRps": 750,
+  "incident": { "kind": "api-overload", "productWork": 1, "deployedVersion": "v2.17.0" },
+  "initialLogs": [
+    {
+      "at": -30,
+      "kind": "WARN",
+      "message": "api request_queue=250 rejected_requests=83 reason=worker_capacity"
+    },
+    { "at": -20, "kind": "INFO", "message": "database cpu=24% lock_wait_ms=0 slow_queries=0" },
+    {
+      "at": -10,
+      "kind": "INFO",
+      "message": "traffic_summary requests_per_second=750 previous_baseline=300"
+    }
+  ],
+  "initialEvents": [
+    {
+      "at": -600,
+      "kind": "baseline",
+      "message": "Referência recente: 300 requisições por segundo."
+    },
+    { "at": -120, "kind": "deploy", "message": "Atualização de conteúdo publicada no site." },
+    { "at": -45, "kind": "alert", "message": "Alerta: erros e latência acima das metas." },
+    { "at": -15, "kind": "customer", "message": "Clientes relatam erros em diferentes telas." }
+  ],
+  "endpoints": [
+    {
+      "path": "GET /products",
+      "share": 0.45,
+      "work": 1,
+      "queries": [
+        {
+          "id": "catalog-list",
+          "name": "Listar produtos",
+          "normal": {
+            "sql": "SELECT id, name FROM products ORDER BY id DESC LIMIT 20;",
+            "plan": "Index Scan using products_pkey on products"
+          }
+        }
+      ]
+    },
+    {
+      "path": "GET /products/:id",
+      "share": 0.15,
+      "work": 0.6,
+      "queries": [
+        {
+          "id": "product-detail",
+          "name": "Buscar produto",
+          "normal": {
+            "sql": "SELECT id, name FROM products WHERE id = $1;",
+            "plan": "Index Scan using products_pkey on products"
+          }
+        }
+      ]
+    },
+    {
+      "path": "POST /checkout",
+      "share": 0.2,
+      "work": 2,
+      "queries": [
+        {
+          "id": "checkout-stock",
+          "name": "Consultar estoque",
+          "normal": {
+            "sql": "SELECT id, stock FROM products WHERE id = $1 FOR UPDATE;",
+            "plan": "Index Scan using products_pkey on products"
+          }
+        }
+      ]
+    },
+    {
+      "path": "GET /orders",
+      "share": 0.2,
+      "work": 0.8,
+      "queries": [
+        {
+          "id": "customer-orders",
+          "name": "Buscar pedidos",
+          "normal": {
+            "sql": "SELECT id FROM orders WHERE customer_id = $1;",
+            "plan": "Index Scan using orders_customer_id_idx on orders"
+          }
+        }
+      ]
+    }
+  ],
+  "rootCause": "Um aumento sustentado de tráfego excedeu a capacidade de processamento da API, provocando filas e rejeições antes de as requisições chegarem ao banco.",
+  "explanation": "O banco e seus planos permanecem saudáveis. Compare o tráfego atual com a referência e a utilização da API. Aumentar a capacidade da API recupera o serviço, mas o tráfego elevado continua e exige planejamento de capacidade.",
+  "alternatives": [
+    "Aumentar a capacidade da API alivia a saturação, com custo adicional. Avalie limites e escalonamento automático para futuras campanhas."
+  ]
+}

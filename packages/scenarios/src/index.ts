@@ -1,9 +1,10 @@
 import checkout from '../checkout.json';
 import stockLock from '../stock-lock.json';
 import nightShift from '../night-shift.json';
+import rushHour from '../rush-hour.json';
 import { scenarioSchema, type Scenario } from '../../scenario-schema/src';
 
-const scenarios = [checkout, stockLock, nightShift].map((definition) =>
+const scenarios = [checkout, stockLock, nightShift, rushHour].map((definition) =>
   scenarioSchema.parse(definition),
 );
 
