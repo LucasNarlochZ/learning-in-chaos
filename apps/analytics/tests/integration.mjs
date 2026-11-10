@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -45,6 +45,12 @@ async function waitForApi() {
 }
 
 try {
+  const dockerfile = await readFile(new URL('../Dockerfile', import.meta.url), 'utf8');
+  assert.match(
+    dockerfile,
+    /COPY --from=build --chown=node:node \/app\/apps\/analytics\/public \.\/public/,
+  );
+
   await waitForApi();
   const denied = await fetch(`${base}/dashboard`);
   assert.equal(denied.status, 401);
